@@ -20,7 +20,7 @@ export interface Waitstaff {
   store_id?: string;
   name: string;
   password?: string;
-  role: 'GERENTE' | 'GARCOM';
+  role: 'GERENTE' | 'ATENDENTE';
 }
 
 export interface Product {

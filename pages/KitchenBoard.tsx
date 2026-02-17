@@ -138,7 +138,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onReady, elapsed }) => {
           <h3 className="text-2xl font-black text-zinc-900 leading-none">
             {order.type === 'MESA' ? `MESA ${order.tableNumber}` : order.customerName || 'CLIENTE'}
           </h3>
-          {order.waitstaffName && <p className="text-[10px] font-bold text-zinc-400 uppercase mt-1">Garçom: {order.waitstaffName}</p>}
+          {order.waitstaffName && <p className="text-[10px] font-bold text-zinc-400 uppercase mt-1">Atendente: {order.waitstaffName}</p>}
         </div>
         <div className="text-right">
           <div className={`flex items-center gap-1 font-bold text-sm ${isLate ? 'text-red-600' : 'text-zinc-400'}`}>

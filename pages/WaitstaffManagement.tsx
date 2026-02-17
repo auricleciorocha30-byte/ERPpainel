@@ -28,7 +28,7 @@ const WaitstaffManagement: React.FC<Props> = ({ currentStore, settings, onUpdate
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState('');
   const [newPass, setNewPass] = useState('');
-  const [newRole, setNewRole] = useState<'GERENTE' | 'GARCOM'>('GARCOM');
+  const [newRole, setNewRole] = useState<'GERENTE' | 'ATENDENTE'>('ATENDENTE');
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -66,7 +66,7 @@ const WaitstaffManagement: React.FC<Props> = ({ currentStore, settings, onUpdate
       if (error) throw error;
       setNewName('');
       setNewPass('');
-      setNewRole('GARCOM');
+      setNewRole('ATENDENTE');
       fetchStaff();
     } catch (err: any) {
       alert("Erro ao adicionar colaborador: " + err.message);
@@ -95,21 +95,21 @@ const WaitstaffManagement: React.FC<Props> = ({ currentStore, settings, onUpdate
           <div className="mb-6 p-4 bg-blue-50 rounded-2xl border border-blue-100 flex items-start gap-3">
              <AlertCircle size={20} className="text-blue-500 shrink-0 mt-0.5" />
              <p className="text-[11px] text-blue-700 font-bold uppercase leading-snug">
-               Nota: Estas restrições aplicam-se apenas aos usuários com cargo de "GARÇOM". Usuários "GERENTE" possuem acesso total irrestrito.
+               Nota: Estas restrições aplicam-se apenas aos usuários com cargo de "ATENDENTE". Usuários "GERENTE" possuem acesso total irrestrito.
              </p>
           </div>
 
           <div className="space-y-4 flex-1">
             <PermissionCard 
               title="Finalizar Pedidos" 
-              description="Permite que a garçonete marque pedidos como ENTREGUES."
+              description="Permite que o atendente marque pedidos como ENTREGUES."
               icon={<CheckCircle2 className="text-green-500" />}
               checked={settings.canWaitstaffFinishOrder}
               onChange={() => togglePermission('canWaitstaffFinishOrder')}
             />
             <PermissionCard 
               title="Cancelar/Excluir Itens" 
-              description="Permite que a garçonete cancele pedidos ou remova itens."
+              description="Permite que o atendente cancele pedidos ou remova itens."
               icon={<XCircle className="text-red-500" />}
               checked={settings.canWaitstaffCancelItems}
               onChange={() => togglePermission('canWaitstaffCancelItems')}
@@ -144,7 +144,7 @@ const WaitstaffManagement: React.FC<Props> = ({ currentStore, settings, onUpdate
                 required
               />
               <div className="flex bg-gray-50 p-1 rounded-2xl border border-gray-100">
-                {(['GARCOM', 'GERENTE'] as const).map(role => (
+                {(['ATENDENTE', 'GERENTE'] as const).map(role => (
                    <button 
                      key={role}
                      type="button"

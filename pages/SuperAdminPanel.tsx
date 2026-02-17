@@ -68,7 +68,7 @@ export default function SuperAdminPanel() {
   const [newUserFormData, setNewUserFormData] = useState({
     name: '',
     password: '',
-    role: 'GARCOM' as 'GERENTE' | 'GARCOM'
+    role: 'ATENDENTE' as 'GERENTE' | 'ATENDENTE'
   });
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
 
@@ -136,25 +136,6 @@ export default function SuperAdminPanel() {
     fetchStoreData(store.id);
   };
 
-  const fetchStoreData = async (storeId: string) => {
-    const [catRes, prodRes, staffRes] = await Promise.all([
-      supabase.from('categories').eq('store_id', storeId).select('*'),
-      supabase.from('products').eq('store_id', storeId).select('*'),
-      supabase.from('waitstaff').eq('store_id', storeId).select('*')
-    ]);
-    if (catRes.data) setStoreCategories(catRes.data);
-    if (prodRes.data) {
-        const mappedProds = prodRes.data.map((p: any) => ({
-            ...p,
-            id: p.id,
-            isActive: p.isactive ?? p.isActive ?? true,
-            imageUrl: p.imageurl ?? p.imageUrl ?? ''
-        }));
-        setStoreProducts(mappedProds);
-    }
-    if (staffRes.data) setStoreWaitstaff(staffRes.data);
-  };
-
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingStore) return;
@@ -186,6 +167,25 @@ export default function SuperAdminPanel() {
       fetchStores();
     }
     setIsSaving(false);
+  };
+
+  const fetchStoreData = async (storeId: string) => {
+    const [catRes, prodRes, staffRes] = await Promise.all([
+      supabase.from('categories').eq('store_id', storeId).select('*'),
+      supabase.from('products').eq('store_id', storeId).select('*'),
+      supabase.from('waitstaff').eq('store_id', storeId).select('*')
+    ]);
+    if (catRes.data) setStoreCategories(catRes.data);
+    if (prodRes.data) {
+        const mappedProds = prodRes.data.map((p: any) => ({
+            ...p,
+            id: p.id,
+            isActive: p.isactive ?? p.isActive ?? true,
+            imageUrl: p.imageurl ?? p.imageUrl ?? ''
+        }));
+        setStoreProducts(mappedProds);
+    }
+    if (staffRes.data) setStoreWaitstaff(staffRes.data);
   };
 
   const handleAddCategory = async () => {
@@ -251,7 +251,7 @@ export default function SuperAdminPanel() {
     if (error) {
       alert("Erro ao criar usuário: " + (error.message || "Verifique os dados."));
     } else {
-      setNewUserFormData({ name: '', password: '', role: 'GARCOM' });
+      setNewUserFormData({ name: '', password: '', role: 'ATENDENTE' });
       fetchStoreData(editingStore.id);
     }
   };
@@ -417,7 +417,7 @@ export default function SuperAdminPanel() {
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Cargo / Nível</label>
                       <div className="grid grid-cols-2 gap-3 bg-slate-50 p-1.5 rounded-2xl">
-                        <button type="button" onClick={() => setNewUserFormData({...newUserFormData, role: 'GARCOM'})} className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all ${newUserFormData.role === 'GARCOM' ? 'bg-white shadow-sm text-primary' : 'text-slate-400'}`}>Garçom</button>
+                        <button type="button" onClick={() => setNewUserFormData({...newUserFormData, role: 'ATENDENTE'})} className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all ${newUserFormData.role === 'ATENDENTE' ? 'bg-white shadow-sm text-primary' : 'text-slate-400'}`}>Atendente</button>
                         <button type="button" onClick={() => setNewUserFormData({...newUserFormData, role: 'GERENTE'})} className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all ${newUserFormData.role === 'GERENTE' ? 'bg-white shadow-sm text-primary' : 'text-slate-400'}`}>Gerente</button>
                       </div>
                     </div>
