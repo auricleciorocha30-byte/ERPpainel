@@ -292,7 +292,9 @@ function StoreContext() {
       
       {/* Rotas de Identidade e Master */}
       <Route path="/master" element={<SuperAdminPanel />} />
-      <Route path="/login" element={adminUser ? (adminUser.role === 'GERENTE' ? <Navigate to={`/${lojaParam}`} /> : <Navigate to={`/atendimento${lojaParam}`} />) : <LoginPage onLoginSuccess={handleSetUser} />} />
+      
+      {/* Rota de Login: Permite visualizar o HUB mesmo logado, permitindo troca de contexto operacional */}
+      <Route path="/login" element={<LoginPage onLoginSuccess={handleSetUser} />} />
 
       {/* Rota Raiz (Painel Admin) */}
       <Route path="/" element={

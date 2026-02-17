@@ -33,14 +33,17 @@ export default function LoginPage({ onLoginSuccess }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<'hub' | 'login'>('hub');
+  const [intendedDestination, setIntendedDestination] = useState<string | null>(null);
   
+  const storeSlug = searchParams.get('loja');
+  const lojaParam = storeSlug ? `?loja=${storeSlug}` : '';
+
   // PWA Install Logic
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstallable, setIsInstallable] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
 
   useEffect(() => {
-    // Detectar iOS
     const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
     setIsIOS(isIOSDevice);
 
@@ -76,9 +79,7 @@ export default function LoginPage({ onLoginSuccess }: Props) {
     setError(null);
 
     try {
-      const storeSlug = searchParams.get('loja');
       let currentStoreId = null;
-      
       if (storeSlug) {
         const { data: storeData } = await supabase.from('store_profiles').eq('slug', storeSlug).maybeSingle();
         currentStoreId = storeData?.id;
@@ -90,9 +91,7 @@ export default function LoginPage({ onLoginSuccess }: Props) {
         store_id: currentStoreId
       });
 
-      if (authError) {
-        throw authError;
-      }
+      if (authError) throw authError;
 
       if (authData.user) {
         const userData = {
@@ -101,8 +100,16 @@ export default function LoginPage({ onLoginSuccess }: Props) {
           role: authData.user.role
         };
         
-        // Chamada para o App.tsx salvar a sessão
         onLoginSuccess(userData);
+
+        // Redirecionamento inteligente após login
+        if (intendedDestination) {
+          navigate(`${intendedDestination}${lojaParam}`);
+        } else {
+          // Fallback padrão
+          if (userData.role === 'GERENTE') navigate(`/${lojaParam}`);
+          else navigate(`/atendimento${lojaParam}`);
+        }
       }
     } catch (err: any) {
       setError(err.message || 'Erro ao realizar login');
@@ -111,13 +118,25 @@ export default function LoginPage({ onLoginSuccess }: Props) {
     }
   };
 
-  const PortalButton = ({ icon: Icon, title, description, to, color }: any) => {
-    const loja = searchParams.get('loja');
-    const fullTo = loja ? `${to}?loja=${loja}` : to;
-    
+  const handlePortalAction = (target: string, requiresAuth: boolean) => {
+    if (requiresAuth) {
+      // Verifica se já existe sessão no localStorage antes de mudar a view
+      const session = localStorage.getItem('gc-conveniencia-session-v1');
+      if (session) {
+        navigate(`${target}${lojaParam}`);
+      } else {
+        setIntendedDestination(target);
+        setView('login');
+      }
+    } else {
+      navigate(`${target}${lojaParam}`);
+    }
+  };
+
+  const PortalButton = ({ icon: Icon, title, description, to, color, requiresAuth }: any) => {
     return (
       <button 
-        onClick={() => navigate(fullTo)}
+        onClick={() => handlePortalAction(to, requiresAuth)}
         className="group flex items-center gap-5 p-6 bg-white rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-xl hover:border-orange-100 transition-all text-left active:scale-95"
       >
         <div className={`p-4 rounded-2xl ${color} text-white shadow-lg shadow-black/5 group-hover:scale-110 transition-transform`}>
@@ -173,9 +192,10 @@ export default function LoginPage({ onLoginSuccess }: Props) {
                 <PortalButton 
                   icon={UserRound} 
                   title="Atendimento" 
-                  description="Painel de Mesas" 
+                  description="Mapa de Mesas" 
                   to="/atendimento" 
                   color="bg-orange-500" 
+                  requiresAuth={true}
                 />
                 <PortalButton 
                   icon={ChefHat} 
@@ -183,6 +203,7 @@ export default function LoginPage({ onLoginSuccess }: Props) {
                   description="Painel de Produção" 
                   to="/cozinha" 
                   color="bg-blue-600" 
+                  requiresAuth={false}
                 />
                 <PortalButton 
                   icon={Tv} 
@@ -190,9 +211,10 @@ export default function LoginPage({ onLoginSuccess }: Props) {
                   description="Exibição de Pedidos" 
                   to="/tv" 
                   color="bg-purple-600" 
+                  requiresAuth={false}
                 />
                 <button 
-                  onClick={() => setView('login')}
+                  onClick={() => { setIntendedDestination('/'); setView('login'); }}
                   className="group flex items-center gap-5 p-6 bg-primary rounded-[2rem] border border-primary/10 shadow-lg text-left active:scale-95"
                 >
                   <div className="p-4 rounded-2xl bg-white/10 text-secondary shadow-lg group-hover:scale-110 transition-transform">
@@ -200,7 +222,7 @@ export default function LoginPage({ onLoginSuccess }: Props) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-bold text-white leading-none mb-1">Gerência</h3>
-                    <p className="text-[10px] text-white/40 font-bold uppercase tracking-wider">Acesso Administrativo</p>
+                    <p className="text-[10px] text-white/40 font-bold uppercase tracking-wider">Painel Administrativo</p>
                   </div>
                   <ArrowRight size={20} className="text-white/20 group-hover:text-secondary group-hover:translate-x-1 transition-all" />
                 </button>
@@ -215,9 +237,16 @@ export default function LoginPage({ onLoginSuccess }: Props) {
                 </div>
               )}
 
+              <div className="bg-orange-50 p-4 rounded-2xl border border-orange-100 flex items-center gap-3 mb-4">
+                <div className="p-2 bg-white rounded-lg text-orange-500 shadow-sm"><Lock size={16} /></div>
+                <p className="text-[10px] font-black text-orange-800 uppercase tracking-widest leading-tight">
+                  {intendedDestination === '/atendimento' ? 'Identifique-se para acessar as mesas' : 'Acesso restrito para gerentes'}
+                </p>
+              </div>
+
               <form onSubmit={handleLogin} className="space-y-6">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-500 uppercase ml-4 tracking-widest">Usuário Administrativo</label>
+                  <label className="text-xs font-bold text-gray-500 uppercase ml-4 tracking-widest">Usuário</label>
                   <div className="relative">
                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                     <input 
@@ -254,14 +283,14 @@ export default function LoginPage({ onLoginSuccess }: Props) {
                   >
                     {loading ? <Loader2 className="animate-spin" size={24} /> : (
                       <>
-                        Entrar no Gerenciamento
+                        Entrar Agora
                         <LogIn size={20} className="group-hover:translate-x-1 transition-transform" />
                       </>
                     )}
                   </button>
                   <button 
                     type="button"
-                    onClick={() => setView('hub')}
+                    onClick={() => { setView('hub'); setIntendedDestination(null); setError(null); }}
                     className="w-full py-4 text-gray-400 font-bold text-xs uppercase tracking-[0.2em]"
                   >
                     Voltar ao Portal
@@ -298,6 +327,14 @@ export default function LoginPage({ onLoginSuccess }: Props) {
 
         </div>
       </div>
+      <style>{`
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-5px); }
+          75% { transform: translateX(5px); }
+        }
+        .animate-shake { animation: shake 0.2s ease-in-out 0s 2; }
+      `}</style>
     </div>
   );
 }
