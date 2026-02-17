@@ -36,6 +36,7 @@ const SCHEMA_STATEMENTS = [
   )`,
   `CREATE TABLE IF NOT EXISTS waitstaff (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    store_id UUID,
     name TEXT NOT NULL,
     password TEXT NOT NULL,
     role TEXT NOT NULL
@@ -230,11 +231,22 @@ class NeonBridge {
 
   auth = {
     getSession: async () => ({ data: { session: null } }),
-    signInWithPassword: async ({ email, password }: any) => {
+    signInWithPassword: async ({ email, password, store_id }: any) => {
       await ensureSchema();
-      const res = await sql(`SELECT * FROM waitstaff WHERE name = $1 AND password = $2 LIMIT 1`, [email, password]);
+      // Added store_id check to ensure users login to the correct store
+      let query = `SELECT * FROM waitstaff WHERE name = $1 AND password = $2`;
+      let params = [email, password];
+      
+      if (store_id) {
+        query += ` AND store_id = $3`;
+        params.push(store_id);
+      }
+      
+      query += ` LIMIT 1`;
+      
+      const res = await sql(query, params);
       if (res && res.length > 0) return { data: { user: { id: res[0].id, email: res[0].name } }, error: null };
-      return { data: { user: null }, error: { message: 'Incorreto' } };
+      return { data: { user: null }, error: { message: 'Credenciais inválidas ou loja incorreta' } };
     },
     signOut: async () => ({ error: null }),
     onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } })

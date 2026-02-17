@@ -27,10 +27,14 @@ import {
   ChevronLeft,
   Settings,
   Save,
-  LayoutDashboard
+  LayoutDashboard,
+  Users,
+  Key,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { StoreProfile, Product } from '../types';
+import { StoreProfile, Product, Waitstaff } from '../types';
 import { INITIAL_SETTINGS } from '../constants';
 
 export default function SuperAdminPanel() {
@@ -46,9 +50,10 @@ export default function SuperAdminPanel() {
   const [editingStore, setEditingStore] = useState<StoreProfile | null>(null);
   const [storeCategories, setStoreCategories] = useState<any[]>([]);
   const [storeProducts, setStoreProducts] = useState<Product[]>([]);
+  const [storeWaitstaff, setStoreWaitstaff] = useState<Waitstaff[]>([]);
   const [newCatName, setNewCatName] = useState('');
   const [isManagingContent, setIsManagingContent] = useState(false);
-  const [activeSubTab, setActiveSubTab] = useState<'perfil' | 'inventario'>('perfil');
+  const [activeSubTab, setActiveSubTab] = useState<'perfil' | 'inventario' | 'equipe'>('perfil');
 
   // Estados para Edição de Perfil
   const [editProfileData, setEditProfileData] = useState({
@@ -58,6 +63,14 @@ export default function SuperAdminPanel() {
     whatsapp: '',
     logoUrl: ''
   });
+
+  // Estados para Gerenciamento de Equipe
+  const [newUserFormData, setNewUserFormData] = useState({
+    name: '',
+    password: '',
+    role: 'GARCOM' as 'GERENTE' | 'GARCOM'
+  });
+  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
 
   // Estados para Novo Produto Manual
   const [showProductForm, setShowProductForm] = useState(false);
@@ -120,13 +133,14 @@ export default function SuperAdminPanel() {
     });
     setIsManagingContent(true);
     setActiveSubTab('perfil');
-    fetchStoreInventory(store.id);
+    fetchStoreData(store.id);
   };
 
-  const fetchStoreInventory = async (storeId: string) => {
-    const [catRes, prodRes] = await Promise.all([
+  const fetchStoreData = async (storeId: string) => {
+    const [catRes, prodRes, staffRes] = await Promise.all([
       supabase.from('categories').eq('store_id', storeId).select('*'),
-      supabase.from('products').eq('store_id', storeId).select('*')
+      supabase.from('products').eq('store_id', storeId).select('*'),
+      supabase.from('waitstaff').eq('store_id', storeId).select('*')
     ]);
     if (catRes.data) setStoreCategories(catRes.data);
     if (prodRes.data) {
@@ -138,6 +152,7 @@ export default function SuperAdminPanel() {
         }));
         setStoreProducts(mappedProds);
     }
+    if (staffRes.data) setStoreWaitstaff(staffRes.data);
   };
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
@@ -182,14 +197,14 @@ export default function SuperAdminPanel() {
     if (error) alert("Erro ao adicionar categoria (já existe ou erro de conexão)");
     else {
       setNewCatName('');
-      fetchStoreInventory(editingStore.id);
+      fetchStoreData(editingStore.id);
     }
   };
 
   const handleDeleteCategory = async (id: number) => {
     if (!window.confirm("Remover esta categoria?")) return;
     await supabase.from('categories').eq('id', id).delete();
-    fetchStoreInventory(editingStore!.id);
+    fetchStoreData(editingStore!.id);
   };
 
   const handleSaveProduct = async (e: React.FormEvent) => {
@@ -212,14 +227,42 @@ export default function SuperAdminPanel() {
     else {
       setShowProductForm(false);
       setProductFormData({ name: '', description: '', price: 0, category: '', imageUrl: '', isActive: true });
-      fetchStoreInventory(editingStore.id);
+      fetchStoreData(editingStore.id);
     }
   };
 
   const handleDeleteProduct = async (id: string) => {
     if (!window.confirm("Excluir este produto?")) return;
     await supabase.from('products').eq('id', id).delete();
-    fetchStoreInventory(editingStore!.id);
+    fetchStoreData(editingStore!.id);
+  };
+
+  const handleAddWaitstaff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingStore || !newUserFormData.name || !newUserFormData.password) return;
+    
+    const { error } = await supabase.from('waitstaff').insert([{
+      store_id: editingStore.id,
+      name: newUserFormData.name,
+      password: newUserFormData.password,
+      role: newUserFormData.role
+    }]);
+
+    if (error) alert("Erro ao criar usuário");
+    else {
+      setNewUserFormData({ name: '', password: '', role: 'GARCOM' });
+      fetchStoreData(editingStore.id);
+    }
+  };
+
+  const handleDeleteWaitstaff = async (id: string) => {
+    if (!window.confirm("Excluir este acesso definitivamente?")) return;
+    await supabase.from('waitstaff').eq('id', id).delete();
+    fetchStoreData(editingStore!.id);
+  };
+
+  const togglePasswordVisibility = (id: string) => {
+    setShowPasswords(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   const handleCreateStore = async (e: React.FormEvent) => {
@@ -289,7 +332,7 @@ export default function SuperAdminPanel() {
 
   if (isManagingContent && editingStore) {
     return (
-      <div className="min-h-screen bg-[#F0F2F5] p-6">
+      <div className="min-h-screen bg-[#F0F2F5] p-6 text-zinc-900">
         <div className="max-w-6xl mx-auto space-y-8">
            <button onClick={() => setIsManagingContent(false)} className="flex items-center gap-2 text-slate-500 font-bold hover:text-primary transition-all">
              <ChevronLeft /> Voltar para Lojas
@@ -297,15 +340,16 @@ export default function SuperAdminPanel() {
 
            <div className="bg-white rounded-[3rem] p-8 shadow-xl flex flex-col md:flex-row md:items-center justify-between border border-slate-100 gap-6">
              <div className="flex items-center gap-6">
-               <img src={editingStore.logoUrl} className="w-20 h-20 rounded-2xl object-cover border-4 border-slate-50" />
+               <img src={editingStore.logoUrl} className="w-20 h-20 rounded-2xl object-cover border-4 border-slate-50 shadow-sm" />
                <div>
                  <h1 className="text-3xl font-brand font-bold text-slate-800">{editingStore.name}</h1>
-                 <p className="text-sm font-bold text-slate-400">GERENCIAMENTO DE LOJA</p>
+                 <p className="text-sm font-bold text-slate-400">GERENCIAMENTO DE UNIDADE</p>
                </div>
              </div>
-             <div className="flex bg-slate-100 p-1.5 rounded-2xl">
-                <button onClick={() => setActiveSubTab('perfil')} className={`px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${activeSubTab === 'perfil' ? 'bg-white shadow-sm text-primary' : 'text-slate-400'}`}>DADOS DA LOJA</button>
-                <button onClick={() => setActiveSubTab('inventario')} className={`px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${activeSubTab === 'inventario' ? 'bg-white shadow-sm text-primary' : 'text-slate-400'}`}>INVENTÁRIO / PRODUTOS</button>
+             <div className="flex bg-slate-100 p-1.5 rounded-2xl overflow-x-auto no-scrollbar">
+                <button onClick={() => setActiveSubTab('perfil')} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${activeSubTab === 'perfil' ? 'bg-white shadow-sm text-primary' : 'text-slate-400'}`}>Perfil</button>
+                <button onClick={() => setActiveSubTab('inventario')} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${activeSubTab === 'inventario' ? 'bg-white shadow-sm text-primary' : 'text-slate-400'}`}>Produtos</button>
+                <button onClick={() => setActiveSubTab('equipe')} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${activeSubTab === 'equipe' ? 'bg-white shadow-sm text-primary' : 'text-slate-400'}`}>Usuários/Acesso</button>
              </div>
            </div>
 
@@ -316,18 +360,18 @@ export default function SuperAdminPanel() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Nome da Loja</label>
-                            <input required type="text" value={editProfileData.name} onChange={e => setEditProfileData({...editProfileData, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold" />
+                            <input required type="text" value={editProfileData.name} onChange={e => setEditProfileData({...editProfileData, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold border border-transparent focus:border-slate-200" />
                         </div>
                         <div className="space-y-2">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Slug (URL)</label>
-                            <input required type="text" value={editProfileData.slug} onChange={e => setEditProfileData({...editProfileData, slug: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold" />
+                            <input required type="text" value={editProfileData.slug} onChange={e => setEditProfileData({...editProfileData, slug: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold border border-transparent focus:border-slate-200" />
                         </div>
                     </div>
                     
                     <div className="space-y-2">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Logotipo</label>
                         <div className="flex items-center gap-6">
-                            <img src={editProfileData.logoUrl} className="w-24 h-24 rounded-2xl object-cover border-4 border-slate-100" />
+                            <img src={editProfileData.logoUrl} className="w-24 h-24 rounded-2xl object-cover border-4 border-slate-100 shadow-sm" />
                             <button type="button" onClick={() => fileInputRef.current?.click()} className="px-6 py-3 bg-slate-100 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200 transition-all flex items-center gap-2">
                                 <Camera size={16} /> Alterar Imagem
                             </button>
@@ -338,20 +382,85 @@ export default function SuperAdminPanel() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">WhatsApp</label>
-                            <input type="text" value={editProfileData.whatsapp} onChange={e => setEditProfileData({...editProfileData, whatsapp: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold" />
+                            <input type="text" value={editProfileData.whatsapp} onChange={e => setEditProfileData({...editProfileData, whatsapp: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold border border-transparent focus:border-slate-200" />
                         </div>
                         <div className="space-y-2">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Endereço</label>
-                            <input type="text" value={editProfileData.address} onChange={e => setEditProfileData({...editProfileData, address: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold" />
+                            <input type="text" value={editProfileData.address} onChange={e => setEditProfileData({...editProfileData, address: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold border border-transparent focus:border-slate-200" />
                         </div>
                     </div>
 
                     <div className="pt-6">
-                        <button disabled={isSaving} type="submit" className="px-10 py-4 bg-primary text-white rounded-2xl font-bold shadow-xl flex items-center gap-2 hover:bg-black transition-all">
+                        <button disabled={isSaving} type="submit" className="px-10 py-4 bg-primary text-white rounded-2xl font-bold shadow-xl flex items-center justify-center gap-2 hover:bg-black transition-all">
                             {isSaving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />} Salvar Alterações
                         </button>
                     </div>
                 </form>
+             </div>
+           ) : activeSubTab === 'equipe' ? (
+             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-scale-up">
+               {/* Criar Usuário */}
+               <div className="lg:col-span-5 bg-white rounded-[3rem] p-8 shadow-xl border border-slate-100 h-fit">
+                 <h2 className="text-xl font-bold text-slate-800 mb-8 flex items-center gap-2">
+                   <UserPlus className="text-secondary" /> Novo Acesso Administrativo
+                 </h2>
+                 <form onSubmit={handleAddWaitstaff} className="space-y-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Nome do Usuário</label>
+                      <input required type="text" value={newUserFormData.name} onChange={e => setNewUserFormData({...newUserFormData, name: e.target.value})} className="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-bold border border-transparent focus:border-slate-200" placeholder="ex: gerente.unidade" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Senha de Acesso</label>
+                      <input required type="text" value={newUserFormData.password} onChange={e => setNewUserFormData({...newUserFormData, password: e.target.value})} className="w-full px-5 py-4 bg-slate-50 rounded-2xl outline-none font-bold border border-transparent focus:border-slate-200" placeholder="Defina a senha" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Cargo / Nível</label>
+                      <div className="grid grid-cols-2 gap-3 bg-slate-50 p-1.5 rounded-2xl">
+                        <button type="button" onClick={() => setNewUserFormData({...newUserFormData, role: 'GARCOM'})} className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all ${newUserFormData.role === 'GARCOM' ? 'bg-white shadow-sm text-primary' : 'text-slate-400'}`}>Garçom</button>
+                        <button type="button" onClick={() => setNewUserFormData({...newUserFormData, role: 'GERENTE'})} className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all ${newUserFormData.role === 'GERENTE' ? 'bg-white shadow-sm text-primary' : 'text-slate-400'}`}>Gerente</button>
+                      </div>
+                    </div>
+                    <button type="submit" className="w-full py-5 bg-primary text-white rounded-[1.8rem] font-bold shadow-xl hover:bg-black transition-all mt-4">
+                      Criar Acesso Unidade
+                    </button>
+                 </form>
+               </div>
+
+               {/* Lista de Usuários */}
+               <div className="lg:col-span-7 bg-white rounded-[3rem] p-8 shadow-xl border border-slate-100 min-h-[400px]">
+                 <h2 className="text-xl font-bold text-slate-800 mb-8 flex items-center gap-2">
+                    <Users className="text-secondary" /> Acessos Cadastrados
+                 </h2>
+                 <div className="space-y-4">
+                    {storeWaitstaff.length === 0 ? (
+                      <div className="py-20 text-center text-slate-300 italic">Nenhum usuário administrativo para esta loja.</div>
+                    ) : storeWaitstaff.map(user => (
+                      <div key={user.id} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 flex items-center gap-5 group">
+                        <div className={`p-4 rounded-2xl ${user.role === 'GERENTE' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
+                          <Key size={24} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-bold text-slate-800">{user.name}</h4>
+                          <div className="flex items-center gap-3 mt-1">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{user.role}</span>
+                            <span className="text-[9px] font-bold text-slate-300">|</span>
+                            <div className="flex items-center gap-1.5">
+                               <span className="text-[10px] font-mono font-bold text-slate-500">
+                                 {showPasswords[user.id] ? user.password : '••••••••'}
+                               </span>
+                               <button onClick={() => togglePasswordVisibility(user.id)} className="p-1 text-slate-300 hover:text-primary">
+                                 {showPasswords[user.id] ? <EyeOff size={14} /> : <Eye size={14} />}
+                               </button>
+                            </div>
+                          </div>
+                        </div>
+                        <button onClick={() => handleDeleteWaitstaff(user.id)} className="p-4 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
+                          <Trash2 size={20} />
+                        </button>
+                      </div>
+                    ))}
+                 </div>
+               </div>
              </div>
            ) : (
              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-scale-up">
@@ -418,7 +527,7 @@ export default function SuperAdminPanel() {
 
         {/* Modal Novo Produto Manual */}
         {showProductForm && (
-          <div className="fixed inset-0 z-[110] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-6">
+          <div className="fixed inset-0 z-[110] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-6 text-zinc-900">
             <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl animate-scale-up overflow-hidden">
                <div className="p-8 border-b bg-slate-50 flex items-center justify-between">
                  <h3 className="text-2xl font-bold text-slate-800">Novo Produto</h3>
@@ -428,7 +537,7 @@ export default function SuperAdminPanel() {
                  <div className="flex gap-4 items-center mb-4">
                     <div 
                       onClick={() => productImgInputRef.current?.click()}
-                      className="w-24 h-24 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer overflow-hidden relative"
+                      className="w-24 h-24 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer overflow-hidden relative shadow-inner"
                     >
                       {productFormData.imageUrl ? <img src={productFormData.imageUrl} className="w-full h-full object-cover" /> : <Camera className="text-slate-300" />}
                       <input type="file" ref={productImgInputRef} onChange={(e) => handleFileChange(e, 'product')} className="hidden" accept="image/*" />
@@ -464,21 +573,21 @@ export default function SuperAdminPanel() {
           <div className="p-2 bg-secondary rounded-xl text-primary">
             <ShieldCheck size={24} />
           </div>
-          <span className="font-brand font-bold text-xl tracking-tight">Master Control <span className="text-secondary font-sans text-[10px] uppercase ml-2 bg-white/10 px-2 py-0.5 rounded">v2.3</span></span>
+          <span className="font-brand font-bold text-xl tracking-tight">Master Control <span className="text-secondary font-sans text-[10px] uppercase ml-2 bg-white/10 px-2 py-0.5 rounded">v2.4</span></span>
         </div>
       </nav>
 
       <div className="max-w-7xl mx-auto p-6 md:p-10 space-y-10">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
-            <h1 className="text-4xl font-brand font-bold text-slate-800">Lojas Gerenciadas</h1>
-            <p className="text-slate-500 font-medium">Controle total sobre clientes, status e inventários.</p>
+            <h1 className="text-4xl font-brand font-bold text-slate-800">Unidades do Ecossistema</h1>
+            <p className="text-slate-500 font-medium">Controle administrativo centralizado para todas as lojas.</p>
           </div>
           <button 
             onClick={() => setShowModal(true)}
             className="flex items-center justify-center gap-2 px-10 py-5 bg-[#001F3F] text-white font-bold rounded-[1.5rem] shadow-2xl hover:bg-black transition-all active:scale-95 group"
           >
-            <Plus size={20} className="group-hover:rotate-90 transition-transform" /> Criar Novo Cliente
+            <Plus size={20} className="group-hover:rotate-90 transition-transform" /> Nova Loja Parceira
           </button>
         </div>
 
@@ -511,7 +620,7 @@ export default function SuperAdminPanel() {
                 )}
 
                 <div className="flex items-center gap-5 mb-8">
-                  <img src={store.logoUrl} className={`w-20 h-20 rounded-[1.5rem] object-cover border-4 ${store.isActive ? 'border-secondary' : 'border-slate-200'}`} />
+                  <img src={store.logoUrl} className={`w-20 h-20 rounded-[1.5rem] object-cover border-4 ${store.isActive ? 'border-secondary' : 'border-slate-200'} shadow-sm`} />
                   <div className="min-w-0">
                     <h3 className="font-bold text-2xl text-slate-800 truncate">{store.name}</h3>
                     <div className="text-[10px] font-black uppercase text-slate-400 tracking-widest">/{store.slug}</div>
@@ -520,7 +629,7 @@ export default function SuperAdminPanel() {
 
                 <div className="grid grid-cols-2 gap-3 pt-4 border-t border-slate-100">
                   <button onClick={() => handleManageContent(store)} className="flex items-center justify-center gap-2 py-4 bg-slate-100 text-slate-700 rounded-2xl font-black text-[10px] uppercase hover:bg-slate-200 transition-all">
-                    <Edit2 size={14} /> Gerenciar Loja
+                    <Edit2 size={14} /> Gerenciar Unidade
                   </button>
                   <button 
                     onClick={() => toggleStoreStatus(store.id, store.isActive)}
@@ -528,15 +637,15 @@ export default function SuperAdminPanel() {
                   >
                     {store.isActive ? <Lock size={14} /> : <Unlock size={14} />} {store.isActive ? 'Bloquear' : 'Reativar'}
                   </button>
-                  <a href={`/#/login?loja=${store.slug}`} target="_blank" className="flex items-center justify-center gap-2 py-4 bg-secondary text-primary rounded-2xl font-black text-[10px] uppercase col-span-2">
+                  <a href={`/#/login?loja=${store.slug}`} target="_blank" className="flex items-center justify-center gap-2 py-4 bg-secondary text-primary rounded-2xl font-black text-[10px] uppercase col-span-2 shadow-sm hover:brightness-95">
                     <LayoutDashboard size={14} /> Acessar Painel ADM
                   </a>
-                  <a href={`/#/cardapio?loja=${store.slug}`} target="_blank" className="flex items-center justify-center gap-2 py-4 bg-primary text-white rounded-2xl font-black text-[10px] uppercase col-span-2">
+                  <a href={`/#/cardapio?loja=${store.slug}`} target="_blank" className="flex items-center justify-center gap-2 py-4 bg-primary text-white rounded-2xl font-black text-[10px] uppercase col-span-2 shadow-sm hover:brightness-110">
                     <ArrowUpRight size={14} /> Ver Cardápio Público
                   </a>
                   <button 
                     onClick={() => copyLink(store.slug)}
-                    className="flex items-center justify-center gap-2 py-3 bg-slate-50 text-slate-400 rounded-xl font-black text-[8px] uppercase col-span-2 mt-2"
+                    className="flex items-center justify-center gap-2 py-3 bg-slate-50 text-slate-400 rounded-xl font-black text-[8px] uppercase col-span-2 mt-2 border border-slate-100"
                   >
                     {copiedId === store.slug ? <Check size={12} className="text-green-500" /> : <Copy size={12} />} {copiedId === store.slug ? 'Link Copiado' : 'Copiar Link do Cardápio'}
                   </button>
@@ -548,35 +657,35 @@ export default function SuperAdminPanel() {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-6">
+        <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-6 text-zinc-900">
           <div className="bg-white w-full max-w-2xl rounded-[4rem] shadow-2xl animate-scale-up overflow-hidden">
             <div className="p-10 border-b bg-slate-50 flex items-center justify-between">
-              <h2 className="text-3xl font-brand font-bold text-slate-800">Novo Cliente</h2>
+              <h2 className="text-3xl font-brand font-bold text-slate-800">Cadastrar Nova Loja</h2>
               <button onClick={() => setShowModal(false)} className="p-4 text-slate-300 hover:text-slate-500"><X size={32}/></button>
             </div>
             
             <form onSubmit={handleCreateStore} className="p-10 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Nome da Loja</label>
-                  <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-6 py-5 bg-slate-50 rounded-[1.8rem] outline-none font-bold" />
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Nome Fantasia</label>
+                  <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-6 py-5 bg-slate-50 rounded-[1.8rem] outline-none font-bold border border-transparent focus:border-slate-200" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Slug</label>
-                  <input type="text" value={formData.slug} onChange={e => setFormData({...formData, slug: e.target.value})} className="w-full px-6 py-5 bg-slate-50 rounded-[1.8rem] outline-none font-bold" placeholder="ex: unidade-sul" />
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Slug Identificador</label>
+                  <input type="text" value={formData.slug} onChange={e => setFormData({...formData, slug: e.target.value})} className="w-full px-6 py-5 bg-slate-50 rounded-[1.8rem] outline-none font-bold border border-transparent focus:border-slate-200" placeholder="ex: unidade-centro" />
                 </div>
               </div>
               <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Logo (Upload)</label>
-                  <div onClick={() => fileInputRef.current?.click()} className="w-full h-32 bg-slate-50 rounded-[1.8rem] border-2 border-dashed flex flex-col items-center justify-center cursor-pointer relative overflow-hidden">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Logotipo</label>
+                  <div onClick={() => fileInputRef.current?.click()} className="w-full h-32 bg-slate-50 rounded-[1.8rem] border-2 border-dashed flex flex-col items-center justify-center cursor-pointer relative overflow-hidden shadow-inner border-slate-200">
                     {formData.logoUrl ? <img src={formData.logoUrl} className="w-full h-full object-cover" /> : <Camera className="text-slate-300" />}
                     <input type="file" ref={fileInputRef} onChange={e => handleFileChange(e, 'store')} className="hidden" accept="image/*" />
                   </div>
               </div>
               <div className="pt-8 flex gap-6">
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-5 text-slate-400 font-bold">Cancelar</button>
-                <button disabled={isSaving} type="submit" className="flex-[2] py-5 bg-[#001F3F] text-white rounded-[1.8rem] font-bold shadow-2xl">
-                  {isSaving ? <Loader2 className="animate-spin mx-auto" size={24}/> : 'Cadastrar Loja'}
+                <button disabled={isSaving} type="submit" className="flex-[2] py-5 bg-[#001F3F] text-white rounded-[1.8rem] font-bold shadow-2xl hover:brightness-110">
+                  {isSaving ? <Loader2 className="animate-spin mx-auto" size={24}/> : 'Confirmar Cadastro'}
                 </button>
               </div>
             </form>

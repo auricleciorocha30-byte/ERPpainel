@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { 
   Lock, 
@@ -27,6 +27,7 @@ interface Props {
 
 export default function LoginPage({ onLoginSuccess }: Props) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -75,47 +76,59 @@ export default function LoginPage({ onLoginSuccess }: Props) {
     setError(null);
 
     try {
+      // Capturar o store_id atual para restringir o login à unidade correta
+      const storeSlug = searchParams.get('loja');
+      let currentStoreId = null;
+      
+      if (storeSlug) {
+        const { data: storeData } = await supabase.from('store_profiles').eq('slug', storeSlug).maybeSingle();
+        currentStoreId = storeData?.id;
+      }
+
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password: password.trim(),
+        store_id: currentStoreId
       });
 
       if (authError) {
-        if (authError.message === 'Invalid login credentials') {
-          throw new Error('E-mail ou senha incorretos.');
-        }
         throw authError;
       }
 
       if (authData.user) {
         onLoginSuccess({
           id: authData.user.id,
-          name: authData.user.email?.split('@')[0] || 'Administrador',
+          name: authData.user.email || 'Administrador',
           role: 'GERENTE'
         });
       }
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'Erro ao realizar login');
     } finally {
       setLoading(false);
     }
   };
 
-  const PortalButton = ({ icon: Icon, title, description, to, color }: any) => (
-    <button 
-      onClick={() => navigate(to)}
-      className="group flex items-center gap-5 p-6 bg-white rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-xl hover:border-orange-100 transition-all text-left active:scale-95"
-    >
-      <div className={`p-4 rounded-2xl ${color} text-white shadow-lg shadow-black/5 group-hover:scale-110 transition-transform`}>
-        <Icon size={28} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <h3 className="font-bold text-gray-800 leading-none mb-1">{title}</h3>
-        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{description}</p>
-      </div>
-      <ArrowRight size={20} className="text-gray-200 group-hover:text-orange-400 group-hover:translate-x-1 transition-all" />
-    </button>
-  );
+  const PortalButton = ({ icon: Icon, title, description, to, color }: any) => {
+    const loja = searchParams.get('loja');
+    const fullTo = loja ? `${to}?loja=${loja}` : to;
+    
+    return (
+      <button 
+        onClick={() => navigate(fullTo)}
+        className="group flex items-center gap-5 p-6 bg-white rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-xl hover:border-orange-100 transition-all text-left active:scale-95"
+      >
+        <div className={`p-4 rounded-2xl ${color} text-white shadow-lg shadow-black/5 group-hover:scale-110 transition-transform`}>
+          <Icon size={28} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-bold text-gray-800 leading-none mb-1">{title}</h3>
+          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{description}</p>
+        </div>
+        <ArrowRight size={20} className="text-gray-200 group-hover:text-orange-400 group-hover:translate-x-1 transition-all" />
+      </button>
+    );
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#fff5e1] p-4 md:p-6 relative overflow-hidden text-zinc-900">
@@ -130,7 +143,7 @@ export default function LoginPage({ onLoginSuccess }: Props) {
               <Store size={40} />
             </div>
             <h1 className="text-2xl md:text-3xl font-brand font-bold text-primary">Portal do Colaborador</h1>
-            <p className="text-xs md:text-sm text-gray-400 mt-2 uppercase font-black tracking-widest">G & C Conveniência</p>
+            <p className="text-xs md:text-sm text-gray-400 mt-2 uppercase font-black tracking-widest">Identificação de Unidade</p>
           </div>
 
           {view === 'hub' ? (
@@ -203,16 +216,16 @@ export default function LoginPage({ onLoginSuccess }: Props) {
 
               <form onSubmit={handleLogin} className="space-y-6">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-500 uppercase ml-4 tracking-widest">E-mail Administrativo</label>
+                  <label className="text-xs font-bold text-gray-500 uppercase ml-4 tracking-widest">Usuário Administrativo</label>
                   <div className="relative">
                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                     <input 
-                      type="email"
+                      type="text"
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-secondary/20 focus:bg-white transition-all text-gray-700 font-medium"
-                      placeholder="admin@conveniencia.com"
+                      placeholder="Nome de usuário"
                     />
                   </div>
                 </div>
@@ -277,7 +290,7 @@ export default function LoginPage({ onLoginSuccess }: Props) {
                 rel="noopener noreferrer"
                 className="inline-flex items-center justify-center gap-1.5 text-[10px] font-bold text-secondary hover:text-orange-600 transition-colors"
               >
-                SUPORTE TÉCNICO: 85987582159
+                SUPORTE TÉCNICO CENTRAL
               </a>
             </div>
           </div>
