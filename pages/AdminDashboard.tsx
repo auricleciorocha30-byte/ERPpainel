@@ -22,7 +22,8 @@ import {
   QrCode,
   Copy,
   Check,
-  Share2
+  Share2,
+  CalendarDays
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
@@ -47,9 +48,22 @@ const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
   const currentMonthValue = now.getMonth() + 1;
   const currentYearValue = now.getFullYear();
 
-  const [filterMonth] = useState<number>(currentMonthValue);
-  const [filterDay, setFilterDay] = useState<number>(0); 
-  const [filterYear] = useState<number>(currentYearValue);
+  const [filterMonth, setFilterMonth] = useState<number>(currentMonthValue);
+  const [filterDay, setFilterDay] = useState<number>(0); // 0 significa "Todos os dias"
+  const [filterYear, setFilterYear] = useState<number>(currentYearValue);
+
+  const months = [
+    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+  ];
+
+  const years = useMemo(() => {
+    const startYear = 2024;
+    const endYear = now.getFullYear() + 1;
+    const list = [];
+    for (let i = startYear; i <= endYear; i++) list.push(i);
+    return list;
+  }, [now]);
 
   const filteredOrders = useMemo(() => {
     return orders.filter(order => {
@@ -108,19 +122,78 @@ const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
     <div className="space-y-8 pb-12 text-zinc-900 animate-fade-in">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-           <h1 className="text-3xl font-brand font-bold text-gray-800">Boas-vindas ao Gestor</h1>
-           <p className="text-gray-500 text-sm">Controle sua operação em tempo real.</p>
+           <h1 className="text-3xl font-brand font-bold text-gray-800">Painel de Gestão</h1>
+           <p className="text-gray-500 text-sm">Acompanhe seus resultados e filtre por período.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-3 bg-white border border-gray-200 text-primary rounded-xl font-bold shadow-sm hover:bg-gray-50 transition-all text-xs">
+        <div className="flex flex-wrap gap-2 print:hidden">
+          <button onClick={() => window.print()} className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-bold shadow-lg hover:opacity-90 transition-all active:scale-95 text-xs">
             <Printer size={16} className="text-secondary" /> Imprimir Relatório
           </button>
         </div>
       </div>
 
+      {/* BARRA DE FILTROS */}
+      <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex flex-wrap items-center gap-4 print:hidden">
+        <div className="flex items-center gap-2 text-gray-400 mr-2">
+            <Filter size={18} />
+            <span className="text-[10px] font-black uppercase tracking-widest">Filtrar Período:</span>
+        </div>
+        
+        <div className="flex items-center gap-2">
+            <label className="text-[10px] font-bold text-gray-400 uppercase">Dia</label>
+            <select 
+                value={filterDay} 
+                onChange={(e) => setFilterDay(Number(e.target.value))}
+                className="bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-secondary/20"
+            >
+                <option value={0}>Todos</option>
+                {Array.from({ length: 31 }, (_, i) => (
+                    <option key={i + 1} value={i + 1}>{i + 1}</option>
+                ))}
+            </select>
+        </div>
+
+        <div className="flex items-center gap-2">
+            <label className="text-[10px] font-bold text-gray-400 uppercase">Mês</label>
+            <select 
+                value={filterMonth} 
+                onChange={(e) => setFilterMonth(Number(e.target.value))}
+                className="bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-secondary/20"
+            >
+                {months.map((m, i) => (
+                    <option key={i + 1} value={i + 1}>{m}</option>
+                ))}
+            </select>
+        </div>
+
+        <div className="flex items-center gap-2">
+            <label className="text-[10px] font-bold text-gray-400 uppercase">Ano</label>
+            <select 
+                value={filterYear} 
+                onChange={(e) => setFilterYear(Number(e.target.value))}
+                className="bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-secondary/20"
+            >
+                {years.map(y => (
+                    <option key={y} value={y}>{y}</option>
+                ))}
+            </select>
+        </div>
+
+        <div className="ml-auto text-[10px] font-black uppercase text-secondary bg-primary px-3 py-2 rounded-lg">
+            {filteredOrders.length} Pedidos Encontrados
+        </div>
+      </div>
+
+      <div className="hidden print:block mb-8 border-b pb-4">
+          <h2 className="text-xl font-bold uppercase tracking-widest text-primary">Relatório de Desempenho</h2>
+          <p className="text-xs font-medium text-gray-500">
+            Período: {filterDay !== 0 ? `${filterDay} de ` : ''}{months[filterMonth - 1]} de {filterYear}
+          </p>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-8 space-y-8">
-            <section className="space-y-3">
+            <section className="space-y-3 print:hidden">
                 <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">Painéis Operacionais</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <OpPanelLink to={`/atendimento${lojaParam}`} label="Atendimento" icon={<UserRound size={24} />} color="bg-orange-50 text-orange-600 border-orange-100" />
@@ -130,14 +203,14 @@ const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
             </section>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                <StatCard icon={<TrendingUp className="text-green-500" />} label="Vendas (Mês)" value={`R$ ${totalSales.toFixed(2)}`} color="bg-green-50" />
-                <StatCard icon={<ShoppingBag className="text-blue-500" />} label="Pedidos" value={totalOrdersCount.toString()} color="bg-blue-50" />
-                <StatCard icon={<XCircle className="text-red-500" />} label="Cancelados" value={canceledOrdersCount.toString()} color="bg-red-50" />
+                <StatCard icon={<TrendingUp className="text-green-500" />} label="Total Vendido" value={`R$ ${totalSales.toFixed(2)}`} color="bg-green-50" />
+                <StatCard icon={<ShoppingBag className="text-blue-500" />} label="Pedidos Concluídos" value={totalOrdersCount.toString()} color="bg-blue-50" />
+                <StatCard icon={<XCircle className="text-red-500" />} label="Pedidos Cancelados" value={canceledOrdersCount.toString()} color="bg-red-50" />
             </div>
 
-            <section className="bg-white p-8 rounded-[3rem] shadow-sm border border-gray-100">
+            <section className="bg-white p-8 rounded-[3rem] shadow-sm border border-gray-100 print:shadow-none">
                 <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                    <TrendingUp className="text-secondary" /> Faturamento Diário
+                    <TrendingUp className="text-secondary" /> Faturamento por Dia da Semana
                 </h2>
                 <div className="h-64 w-full">
                     <ResponsiveContainer width="100%" height="100%">
@@ -158,8 +231,7 @@ const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
         </div>
 
         <div className="lg:col-span-4 space-y-8">
-            {/* NOVO: Seção de Divulgação e Instalação do App */}
-            <section className="bg-primary text-white p-8 rounded-[3rem] shadow-xl relative overflow-hidden">
+            <section className="bg-primary text-white p-8 rounded-[3rem] shadow-xl relative overflow-hidden print:hidden">
                 <div className="absolute -top-10 -right-10 w-32 h-32 bg-secondary opacity-20 rounded-full blur-3xl"></div>
                 <h2 className="text-xl font-brand font-bold mb-2 flex items-center gap-2">
                     <Smartphone className="text-secondary" /> Seu App na Mão
@@ -206,29 +278,29 @@ const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
 
             <section className="bg-white p-8 rounded-[3rem] shadow-sm border border-gray-100">
                 <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                    <ShoppingBag className="text-secondary" /> Mais Vendidos
+                    <ShoppingBag className="text-secondary" /> Mais Vendidos do Período
                 </h2>
                 <div className="space-y-4">
-                    {salesByProduct.slice(0, 5).map((prod, idx) => (
+                    {salesByProduct.slice(0, 8).map((prod, idx) => (
                         <div key={idx} className="flex items-center gap-4 group">
-                            <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center font-black text-gray-400 border border-gray-100 group-hover:bg-orange-50 group-hover:text-orange-500 transition-colors">
+                            <div className="w-10 h-10 rounded-2xl bg-gray-50 flex items-center justify-center font-black text-gray-400 border border-gray-100 group-hover:bg-orange-50 group-hover:text-orange-500 transition-colors">
                                 {idx + 1}
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className="font-bold text-gray-800 truncate text-sm">{prod.name}</p>
+                                <p className="font-bold text-gray-800 truncate text-xs">{prod.name}</p>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[10px] text-gray-400 uppercase font-black">{prod.category}</span>
-                                    <span className="text-[10px] text-gray-300">•</span>
-                                    <span className="text-[10px] font-bold text-secondary">
+                                    <span className="text-[9px] text-gray-400 uppercase font-black">{prod.category}</span>
+                                    <span className="text-[9px] text-gray-300">•</span>
+                                    <span className="text-[9px] font-bold text-secondary">
                                         {prod.isByWeight ? `${prod.quantity.toFixed(3)}kg` : `${prod.quantity} un`}
                                     </span>
                                 </div>
                             </div>
-                            <p className="font-bold text-gray-800 text-sm">R$ {prod.total.toFixed(2)}</p>
+                            <p className="font-bold text-gray-800 text-xs whitespace-nowrap">R$ {prod.total.toFixed(2)}</p>
                         </div>
                     ))}
                     {salesByProduct.length === 0 && (
-                        <p className="text-center py-10 text-gray-400 italic text-sm">Nenhuma venda registrada no período.</p>
+                        <p className="text-center py-10 text-gray-400 italic text-sm">Nenhuma venda registrada no período selecionado.</p>
                     )}
                 </div>
             </section>
@@ -239,7 +311,7 @@ const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
 };
 
 const StatCard = ({ icon, label, value, color }: any) => (
-    <div className={`${color} p-6 rounded-[2.5rem] flex items-center gap-5 border border-white/50 shadow-sm hover:shadow-lg transition-all`}>
+    <div className={`${color} p-6 rounded-[2.5rem] flex items-center gap-5 border border-white/50 shadow-sm hover:shadow-lg transition-all print:border-gray-200 print:shadow-none`}>
         <div className="p-4 bg-white rounded-3xl shadow-sm">{icon}</div>
         <div>
             <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest leading-none mb-1">{label}</p>
