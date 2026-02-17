@@ -30,9 +30,15 @@ interface Props {
 const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
   const [isPrinting, setIsPrinting] = useState(false);
   const [searchParams] = useSearchParams();
-  const storeSlug = searchParams.get('loja');
   
-  // Estados para Filtros
+  // Detecção robusta do slug para os links
+  const storeSlug = useMemo(() => {
+    const slug = searchParams.get('loja');
+    if (slug) return slug;
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('loja');
+  }, [searchParams]);
+  
   const now = new Date();
   const [filterMonth, setFilterMonth] = useState<number>(now.getMonth() + 1);
   const [filterDay, setFilterDay] = useState<number>(0); 
@@ -111,7 +117,8 @@ const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
     { name: 'Dom', sales: 700 },
   ];
 
-  const menuUrl = storeSlug ? `/#/cardapio?loja=${storeSlug}` : '#/cardapio';
+  const lojaParam = storeSlug ? `?loja=${storeSlug}` : '';
+  const menuUrl = `#/cardapio${lojaParam}`;
 
   return (
     <div className="space-y-8 pb-12 text-zinc-900 animate-fade-in">
@@ -148,24 +155,23 @@ const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
         </div>
       </div>
 
-      {/* NOVO: Atalhos Operacionais para Mobile/Desktop */}
       <section className="space-y-3">
         <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">Atalhos da Equipe (Nova Guia)</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <OpPanelLink 
-            to={`#/atendimento?loja=${storeSlug}`} 
+            to={`atendimento${lojaParam}`} 
             label="Painel Atendente" 
             icon={<UserRound size={24} />} 
             color="bg-orange-50 text-orange-600 border-orange-100" 
           />
           <OpPanelLink 
-            to={`#/cozinha?loja=${storeSlug}`} 
+            to={`cozinha${lojaParam}`} 
             label="Painel Cozinha" 
             icon={<ChefHat size={24} />} 
             color="bg-blue-50 text-blue-600 border-blue-100" 
           />
           <OpPanelLink 
-            to={`#/tv?loja=${storeSlug}`} 
+            to={`tv${lojaParam}`} 
             label="Painel TV" 
             icon={<Tv size={24} />} 
             color="bg-purple-50 text-purple-600 border-purple-100" 
@@ -321,7 +327,7 @@ const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
 
 const OpPanelLink = ({ to, label, icon, color }: { to: string, label: string, icon: React.ReactNode, color: string }) => (
   <a 
-    href={to} 
+    href={`#/${to}`} 
     target="_blank" 
     rel="noopener noreferrer" 
     className={`flex items-center gap-4 p-5 rounded-[1.5rem] border transition-all active:scale-95 hover:shadow-md ${color}`}

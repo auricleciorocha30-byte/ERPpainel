@@ -57,7 +57,6 @@ function StoreContext() {
   const [searchParams] = useSearchParams();
   const location = useLocation();
   
-  // Detecção robusta do slug
   const storeSlug = useMemo(() => {
     const slug = searchParams.get('loja');
     if (slug) return slug;
@@ -81,7 +80,6 @@ function StoreContext() {
   const [categories, setCategories] = useState<string[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   
-  // Inicialização de usuário com persistência
   const [adminUser, setAdminUser] = useState<Waitstaff | null>(() => {
     const saved = localStorage.getItem(SESSION_KEY);
     return saved ? JSON.parse(saved) : null;
@@ -138,7 +136,7 @@ function StoreContext() {
         setStoreError('Esta conta está temporariamente suspensa.');
       } else {
         const storeData = data as any;
-        const settingsRaw = storeData.settings || storeData.settings;
+        const settingsRaw = storeData.settings;
         const parsedSettings = typeof settingsRaw === 'string' ? JSON.parse(settingsRaw) : settingsRaw;
         
         setCurrentStore({ 
@@ -286,6 +284,17 @@ function StoreContext() {
 
   return (
     <Routes>
+      {/* Rotas Operacionais Independentes com prioridade máxima */}
+      <Route path="/atendimento" element={<AttendantPanel adminUser={adminUser} orders={orders} settings={settings} onSelectTable={setActiveTable} updateStatus={updateOrderStatus} onLogout={() => handleSetUser(null)} />} />
+      <Route path="/cozinha" element={<KitchenBoard orders={orders} updateStatus={updateOrderStatus} />} />
+      <Route path="/tv" element={<TVBoard orders={orders} settings={settings} products={products} />} />
+      <Route path="/cardapio" element={<DigitalMenu products={products} categories={categories} settings={settings} orders={orders} addOrder={addOrder} tableNumber={activeTable} onLogout={() => setActiveTable(null)} isWaitstaff={!!adminUser} />} />
+      
+      {/* Rotas de Identidade e Master */}
+      <Route path="/master" element={<SuperAdminPanel />} />
+      <Route path="/login" element={adminUser ? (adminUser.role === 'GERENTE' ? <Navigate to={`/${lojaParam}`} /> : <Navigate to={`/atendimento${lojaParam}`} />) : <LoginPage onLoginSuccess={handleSetUser} />} />
+
+      {/* Rota Raiz (Painel Admin) */}
       <Route path="/" element={
         !storeSlug ? <SuperAdminPanel /> : (
           adminUser ? (
@@ -306,12 +315,6 @@ function StoreContext() {
         <Route path="configuracoes" element={<StoreSettingsPage settings={settings} products={products} onSave={handleUpdateSettings} />} />
       </Route>
 
-      <Route path="/master" element={<SuperAdminPanel />} />
-      <Route path="/login" element={adminUser ? (adminUser.role === 'GERENTE' ? <Navigate to={`/${lojaParam}`} /> : <Navigate to={`/atendimento${lojaParam}`} />) : <LoginPage onLoginSuccess={handleSetUser} />} />
-      <Route path="/atendimento" element={<AttendantPanel adminUser={adminUser} orders={orders} settings={settings} onSelectTable={setActiveTable} updateStatus={updateOrderStatus} onLogout={() => handleSetUser(null)} />} />
-      <Route path="/cozinha" element={<KitchenBoard orders={orders} updateStatus={updateOrderStatus} />} />
-      <Route path="/cardapio" element={<DigitalMenu products={products} categories={categories} settings={settings} orders={orders} addOrder={addOrder} tableNumber={activeTable} onLogout={() => setActiveTable(null)} isWaitstaff={!!adminUser} />} />
-      <Route path="/tv" element={<TVBoard orders={orders} settings={settings} products={products} />} />
       <Route path="*" element={<Navigate to={storeSlug ? `/cardapio${lojaParam}` : "/"} />} />
     </Routes>
   );
@@ -320,7 +323,15 @@ function StoreContext() {
 function AdminLayout({ settings, onLogout }: { settings: StoreSettings, onLogout: () => void }) {
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const storeSlug = searchParams.get('loja') || new URLSearchParams(window.location.search).get('loja');
+  
+  // Detecção robusta para o slug nos atalhos
+  const storeSlug = useMemo(() => {
+    const slug = searchParams.get('loja');
+    if (slug) return slug;
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('loja');
+  }, [searchParams]);
+
   const lojaParam = storeSlug ? `?loja=${storeSlug}` : '';
 
   const menuItems = [
@@ -345,10 +356,11 @@ function AdminLayout({ settings, onLogout }: { settings: StoreSettings, onLogout
             </Link>
           ))}
           <div className="pt-6 pb-2 px-3 text-[10px] text-white/40 font-bold uppercase tracking-widest">Atalhos Externos</div>
-          <a href={`#/atendimento${lojaParam}`} target="_blank" className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-orange-400 font-bold"><UserRound size={20} /> Atendimento</a>
-          <a href={`#/cardapio${lojaParam}`} target="_blank" className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-secondary"><Utensils size={20} /> Cardápio</a>
-          <a href={`#/cozinha${lojaParam}`} target="_blank" className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-gray-300"><ChefHat size={20} /> Cozinha</a>
-          <a href={`#/tv${lojaParam}`} target="_blank" className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-gray-300"><Tv size={20} /> Painel TV</a>
+          {/* Garantido o prefixo #/ para rotas de hash em novas abas */}
+          <a href={`#/atendimento${lojaParam}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-orange-400 font-bold"><UserRound size={20} /> Atendimento</a>
+          <a href={`#/cardapio${lojaParam}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-secondary"><Utensils size={20} /> Cardápio</a>
+          <a href={`#/cozinha${lojaParam}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-gray-300"><ChefHat size={20} /> Cozinha</a>
+          <a href={`#/tv${lojaParam}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-gray-300"><Tv size={20} /> Painel TV</a>
         </nav>
         <div className="p-4 border-t border-white/10"><button onClick={onLogout} className="w-full flex items-center gap-3 p-3 text-red-400 font-bold"><LogOut size={18} /> Sair</button></div>
       </aside>
