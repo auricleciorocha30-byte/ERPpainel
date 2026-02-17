@@ -136,6 +136,34 @@ export default function SuperAdminPanel() {
     fetchStoreData(store.id);
   };
 
+  const fetchStoreData = async (storeId: string) => {
+    try {
+      const [catRes, prodRes, staffRes] = await Promise.all([
+        supabase.from('categories').eq('store_id', storeId).select('*'),
+        supabase.from('products').eq('store_id', storeId).select('*'),
+        supabase.from('waitstaff').eq('store_id', storeId).select('*')
+      ]);
+      
+      setStoreCategories(catRes.data || []);
+      
+      if (prodRes.data) {
+          const mappedProds = prodRes.data.map((p: any) => ({
+              ...p,
+              id: p.id || Math.random().toString(),
+              isActive: p.isactive ?? p.isActive ?? true,
+              imageUrl: p.imageurl ?? p.imageUrl ?? ''
+          }));
+          setStoreProducts(mappedProds);
+      } else {
+          setStoreProducts([]);
+      }
+      
+      setStoreWaitstaff(staffRes.data || []);
+    } catch (err) {
+      console.error("Erro ao carregar dados da unidade:", err);
+    }
+  };
+
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingStore) return;
@@ -167,25 +195,6 @@ export default function SuperAdminPanel() {
       fetchStores();
     }
     setIsSaving(false);
-  };
-
-  const fetchStoreData = async (storeId: string) => {
-    const [catRes, prodRes, staffRes] = await Promise.all([
-      supabase.from('categories').eq('store_id', storeId).select('*'),
-      supabase.from('products').eq('store_id', storeId).select('*'),
-      supabase.from('waitstaff').eq('store_id', storeId).select('*')
-    ]);
-    if (catRes.data) setStoreCategories(catRes.data);
-    if (prodRes.data) {
-        const mappedProds = prodRes.data.map((p: any) => ({
-            ...p,
-            id: p.id,
-            isActive: p.isactive ?? p.isActive ?? true,
-            imageUrl: p.imageurl ?? p.imageUrl ?? ''
-        }));
-        setStoreProducts(mappedProds);
-    }
-    if (staffRes.data) setStoreWaitstaff(staffRes.data);
   };
 
   const handleAddCategory = async () => {
@@ -341,7 +350,7 @@ export default function SuperAdminPanel() {
 
            <div className="bg-white rounded-[3rem] p-8 shadow-xl flex flex-col md:flex-row md:items-center justify-between border border-slate-100 gap-6">
              <div className="flex items-center gap-6">
-               <img src={editingStore.logoUrl} className="w-20 h-20 rounded-2xl object-cover border-4 border-slate-50 shadow-sm" />
+               <img src={editingStore.logoUrl} className="w-20 h-20 rounded-2xl object-cover border-4 border-slate-50 shadow-sm" alt="Logo" />
                <div>
                  <h1 className="text-3xl font-brand font-bold text-slate-800">{editingStore.name}</h1>
                  <p className="text-sm font-bold text-slate-400">GERENCIAMENTO DE UNIDADE</p>
@@ -372,7 +381,7 @@ export default function SuperAdminPanel() {
                     <div className="space-y-2">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Logotipo</label>
                         <div className="flex items-center gap-6">
-                            <img src={editProfileData.logoUrl} className="w-24 h-24 rounded-2xl object-cover border-4 border-slate-100 shadow-sm" />
+                            <img src={editProfileData.logoUrl} className="w-24 h-24 rounded-2xl object-cover border-4 border-slate-100 shadow-sm" alt="Preview" />
                             <button type="button" onClick={() => fileInputRef.current?.click()} className="px-6 py-3 bg-slate-100 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200 transition-all flex items-center gap-2">
                                 <Camera size={16} /> Alterar Imagem
                             </button>
@@ -400,7 +409,6 @@ export default function SuperAdminPanel() {
              </div>
            ) : activeSubTab === 'equipe' ? (
              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-scale-up">
-               {/* Criar Usuário */}
                <div className="lg:col-span-5 bg-white rounded-[3rem] p-8 shadow-xl border border-slate-100 h-fit">
                  <h2 className="text-xl font-bold text-slate-800 mb-8 flex items-center gap-2">
                    <UserPlus className="text-secondary" /> Novo Acesso Administrativo
@@ -427,16 +435,15 @@ export default function SuperAdminPanel() {
                  </form>
                </div>
 
-               {/* Lista de Usuários */}
                <div className="lg:col-span-7 bg-white rounded-[3rem] p-8 shadow-xl border border-slate-100 min-h-[400px]">
                  <h2 className="text-xl font-bold text-slate-800 mb-8 flex items-center gap-2">
                     <Users className="text-secondary" /> Acessos Cadastrados
                  </h2>
                  <div className="space-y-4">
-                    {storeWaitstaff.length === 0 ? (
+                    {(storeWaitstaff || []).length === 0 ? (
                       <div className="py-20 text-center text-slate-300 italic">Nenhum usuário administrativo para esta loja.</div>
-                    ) : storeWaitstaff.map(user => (
-                      <div key={user.id} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 flex items-center gap-5 group">
+                    ) : storeWaitstaff.map((user, idx) => (
+                      <div key={user.id || idx} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 flex items-center gap-5 group">
                         <div className={`p-4 rounded-2xl ${user.role === 'GERENTE' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
                           <Key size={24} />
                         </div>
@@ -465,7 +472,6 @@ export default function SuperAdminPanel() {
              </div>
            ) : (
              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-scale-up">
-               {/* Coluna Categorias */}
                <div className="lg:col-span-4 bg-white rounded-[3rem] p-8 shadow-xl border border-slate-100 h-fit">
                  <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
                    <Layers className="text-secondary" /> Categorias
@@ -483,8 +489,8 @@ export default function SuperAdminPanel() {
                    </button>
                  </div>
                  <div className="space-y-2">
-                   {storeCategories.map(cat => (
-                     <div key={cat.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl group">
+                   {(storeCategories || []).map((cat, idx) => (
+                     <div key={cat.id || idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl group">
                        <span className="font-bold text-slate-700">{cat.name}</span>
                        <button onClick={() => handleDeleteCategory(cat.id)} className="p-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
                          <Trash2 size={16} />
@@ -494,7 +500,6 @@ export default function SuperAdminPanel() {
                  </div>
                </div>
 
-               {/* Coluna Produtos */}
                <div className="lg:col-span-8 bg-white rounded-[3rem] p-8 shadow-xl border border-slate-100 min-h-[500px]">
                   <div className="flex items-center justify-between mb-8">
                     <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
@@ -505,15 +510,19 @@ export default function SuperAdminPanel() {
                     </button>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {storeProducts.length === 0 ? (
+                    {(storeProducts || []).length === 0 ? (
                       <div className="col-span-full py-20 text-center text-slate-300 italic">Nenhum produto cadastrado nesta loja.</div>
-                    ) : storeProducts.map(prod => (
-                      <div key={prod.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-4 group">
-                        <img src={prod.imageUrl} className="w-16 h-16 rounded-xl object-cover" />
+                    ) : storeProducts.map((prod, idx) => (
+                      <div key={prod.id || idx} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-4 group">
+                        {prod.imageUrl ? (
+                           <img src={prod.imageUrl} className="w-16 h-16 rounded-xl object-cover" alt={prod.name} />
+                        ) : (
+                           <div className="w-16 h-16 rounded-xl bg-slate-200 flex items-center justify-center text-slate-400"><Package size={24} /></div>
+                        )}
                         <div className="flex-1 min-w-0">
                           <h4 className="font-bold text-slate-800 truncate">{prod.name}</h4>
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{prod.category}</p>
-                          <p className="text-sm font-bold text-secondary">R$ {prod.price.toFixed(2)}</p>
+                          <p className="text-sm font-bold text-secondary">R$ {Number(prod.price || 0).toFixed(2)}</p>
                         </div>
                         <button onClick={() => handleDeleteProduct(prod.id)} className="p-3 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
                           <Trash2 size={18} />
@@ -526,7 +535,6 @@ export default function SuperAdminPanel() {
            )}
         </div>
 
-        {/* Modal Novo Produto Manual */}
         {showProductForm && (
           <div className="fixed inset-0 z-[110] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-6 text-zinc-900">
             <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl animate-scale-up overflow-hidden">
@@ -540,7 +548,7 @@ export default function SuperAdminPanel() {
                       onClick={() => productImgInputRef.current?.click()}
                       className="w-24 h-24 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer overflow-hidden relative shadow-inner"
                     >
-                      {productFormData.imageUrl ? <img src={productFormData.imageUrl} className="w-full h-full object-cover" /> : <Camera className="text-slate-300" />}
+                      {productFormData.imageUrl ? <img src={productFormData.imageUrl} className="w-full h-full object-cover" alt="Thumb" /> : <Camera className="text-slate-300" />}
                       <input type="file" ref={productImgInputRef} onChange={(e) => handleFileChange(e, 'product')} className="hidden" accept="image/*" />
                     </div>
                     <div className="flex-1 space-y-4">
@@ -552,7 +560,7 @@ export default function SuperAdminPanel() {
                    <textarea placeholder="Descrição curta..." value={productFormData.description} onChange={e => setProductFormData({...productFormData, description: e.target.value})} className="w-full px-4 py-3 bg-slate-50 rounded-xl outline-none border border-slate-100 h-24 resize-none font-medium" />
                    <select required value={productFormData.category} onChange={e => setProductFormData({...productFormData, category: e.target.value})} className="w-full px-4 py-4 bg-slate-50 rounded-xl outline-none border border-slate-100 font-bold">
                      <option value="">Selecione a Categoria</option>
-                     {storeCategories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
+                     {(storeCategories || []).map((cat, idx) => <option key={cat.id || idx} value={cat.name}>{cat.name}</option>)}
                    </select>
                  </div>
                  <div className="pt-6 flex gap-4">
@@ -621,7 +629,7 @@ export default function SuperAdminPanel() {
                 )}
 
                 <div className="flex items-center gap-5 mb-8">
-                  <img src={store.logoUrl} className={`w-20 h-20 rounded-[1.5rem] object-cover border-4 ${store.isActive ? 'border-secondary' : 'border-slate-200'} shadow-sm`} />
+                  <img src={store.logoUrl} className={`w-20 h-20 rounded-[1.5rem] object-cover border-4 ${store.isActive ? 'border-secondary' : 'border-slate-200'} shadow-sm`} alt="Logo" />
                   <div className="min-w-0">
                     <h3 className="font-bold text-2xl text-slate-800 truncate">{store.name}</h3>
                     <div className="text-[10px] font-black uppercase text-slate-400 tracking-widest">/{store.slug}</div>
@@ -638,10 +646,10 @@ export default function SuperAdminPanel() {
                   >
                     {store.isActive ? <Lock size={14} /> : <Unlock size={14} />} {store.isActive ? 'Bloquear' : 'Reativar'}
                   </button>
-                  <a href={`/#/login?loja=${store.slug}`} target="_blank" className="flex items-center justify-center gap-2 py-4 bg-secondary text-primary rounded-2xl font-black text-[10px] uppercase col-span-2 shadow-sm hover:brightness-95">
+                  <a href={`/#/login?loja=${store.slug}`} target="_blank" className="flex items-center justify-center gap-2 py-4 bg-secondary text-primary rounded-2xl font-black text-[10px] uppercase col-span-2 shadow-sm hover:brightness-95" rel="noreferrer">
                     <LayoutDashboard size={14} /> Acessar Painel ADM
                   </a>
-                  <a href={`/#/cardapio?loja=${store.slug}`} target="_blank" className="flex items-center justify-center gap-2 py-4 bg-primary text-white rounded-2xl font-black text-[10px] uppercase col-span-2 shadow-sm hover:brightness-110">
+                  <a href={`/#/cardapio?loja=${store.slug}`} target="_blank" className="flex items-center justify-center gap-2 py-4 bg-primary text-white rounded-2xl font-black text-[10px] uppercase col-span-2 shadow-sm hover:brightness-110" rel="noreferrer">
                     <ArrowUpRight size={14} /> Ver Cardápio Público
                   </a>
                   <button 
@@ -679,7 +687,7 @@ export default function SuperAdminPanel() {
               <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Logotipo</label>
                   <div onClick={() => fileInputRef.current?.click()} className="w-full h-32 bg-slate-50 rounded-[1.8rem] border-2 border-dashed flex flex-col items-center justify-center cursor-pointer relative overflow-hidden shadow-inner border-slate-200">
-                    {formData.logoUrl ? <img src={formData.logoUrl} className="w-full h-full object-cover" /> : <Camera className="text-slate-300" />}
+                    {formData.logoUrl ? <img src={formData.logoUrl} className="w-full h-full object-cover" alt="Logo" /> : <Camera className="text-slate-300" />}
                     <input type="file" ref={fileInputRef} onChange={e => handleFileChange(e, 'store')} className="hidden" accept="image/*" />
                   </div>
               </div>
