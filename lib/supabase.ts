@@ -59,7 +59,12 @@ const SCHEMA_STATEMENTS = [
     waitstaffName TEXT,
     couponApplied TEXT,
     discountAmount NUMERIC(10,2)
-  )`
+  )`,
+  // Migrations para garantir que colunas adicionadas recentemente existam
+  `ALTER TABLE waitstaff ADD COLUMN IF NOT EXISTS store_id UUID;`,
+  `ALTER TABLE categories ADD COLUMN IF NOT EXISTS store_id UUID;`,
+  `ALTER TABLE products ADD COLUMN IF NOT EXISTS store_id UUID;`,
+  `ALTER TABLE orders ADD COLUMN IF NOT EXISTS store_id UUID;`
 ];
 
 let schemaInitialized = false;
