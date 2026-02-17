@@ -40,9 +40,13 @@ const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
   }, [searchParams]);
   
   const now = new Date();
-  const [filterMonth, setFilterMonth] = useState<number>(now.getMonth() + 1);
+  const currentMonthValue = now.getMonth() + 1;
+  const currentYearValue = now.getFullYear();
+
+  // Filtro fixo no mês atual conforme solicitado
+  const [filterMonth] = useState<number>(currentMonthValue);
   const [filterDay, setFilterDay] = useState<number>(0); 
-  const [filterYear] = useState<number>(now.getFullYear());
+  const [filterYear] = useState<number>(currentYearValue);
 
   const filteredOrders = useMemo(() => {
     return orders.filter(order => {
@@ -124,18 +128,27 @@ const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
     <div className="space-y-8 pb-12 text-zinc-900 animate-fade-in">
       <style>{`
         @media print {
-          @page { margin: 0; }
-          html, body { margin: 0; padding: 0; background: #fff !important; }
-          body * { visibility: hidden; }
-          #sales-report-print, #sales-report-print * { visibility: visible; }
+          @page { margin: 0; size: auto; }
+          html, body { 
+            margin: 0 !important; 
+            padding: 0 !important; 
+            background: #fff !important;
+            height: auto !important;
+            overflow: visible !important;
+          }
+          #root { display: none !important; }
+          body > * { display: none !important; }
           #sales-report-print {
             display: block !important;
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            padding: 20mm;
-            background: #fff;
+            position: relative !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 10mm !important;
+            visibility: visible !important;
+            overflow: visible !important;
+          }
+          #sales-report-print * {
+            visibility: visible !important;
           }
         }
       `}</style>
@@ -179,35 +192,29 @@ const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
         </div>
       </section>
 
-      <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 flex flex-wrap gap-4 items-end">
+      <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 flex flex-wrap gap-6 items-center">
         <div className="space-y-1">
           <label className="text-[10px] font-black uppercase text-gray-400 ml-1 tracking-widest flex items-center gap-1">
-            <Calendar size={12} /> Filtro Mês
+            <Calendar size={12} /> Mês Vigente
           </label>
-          <div className="relative">
-            <select 
-              value={filterMonth} 
-              onChange={(e) => setFilterMonth(Number(e.target.value))}
-              className="appearance-none pl-4 pr-10 py-3 bg-gray-50 border border-gray-100 rounded-xl outline-none font-bold text-sm focus:ring-2 focus:ring-secondary/20 transition-all"
-            >
-              {months.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
-            </select>
-            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <div className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold text-sm text-primary flex items-center gap-2">
+             <span className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
+             {months[filterMonth - 1]}
           </div>
         </div>
 
         <div className="space-y-1">
           <label className="text-[10px] font-black uppercase text-gray-400 ml-1 tracking-widest flex items-center gap-1">
-            <Filter size={12} /> Filtro Dia
+            <Filter size={12} /> Selecionar Dia
           </label>
           <div className="relative">
             <select 
               value={filterDay} 
               onChange={(e) => setFilterDay(Number(e.target.value))}
-              className="appearance-none pl-4 pr-10 py-3 bg-gray-50 border border-gray-100 rounded-xl outline-none font-bold text-sm focus:ring-2 focus:ring-secondary/20 transition-all"
+              className="appearance-none pl-4 pr-10 py-3 bg-white border border-gray-100 rounded-xl outline-none font-bold text-sm focus:ring-2 focus:ring-secondary/20 transition-all min-w-[160px]"
             >
               <option value={0}>Todos os dias</option>
-              {Array.from({length: 31}, (_, i) => i + 1).map(d => <option key={d} value={d}>{d}</option>)}
+              {Array.from({length: 31}, (_, i) => i + 1).map(d => <option key={d} value={d}>{d} de {months[filterMonth - 1]}</option>)}
             </select>
             <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
           </div>
@@ -284,42 +291,47 @@ const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
         </div>
       </section>
 
-      <div id="sales-report-print" className="hidden">
+      {/* Relatório Oculto para Impressão */}
+      <div id="sales-report-print" style={{ display: 'none' }}>
         <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-          <h1 style={{ fontSize: '28pt', fontWeight: 'bold', marginBottom: '5px' }}>{settings.storeName.toUpperCase()}</h1>
-          {settings.address && <p style={{ fontSize: '11pt', margin: '2px 0' }}>{settings.address}</p>}
-          <div style={{ borderBottom: '3px solid black', margin: '20px 0' }}></div>
-          <h2 style={{ fontSize: '18pt', fontWeight: 'bold' }}>RELATÓRIO DE VENDAS POR PERÍODO</h2>
-          <p style={{ fontSize: '12pt', marginTop: '10px' }}>
-            PERÍODO: {filterDay !== 0 ? `${filterDay}/` : ''}{filterMonth}/{filterYear}
+          <h1 style={{ fontSize: '24pt', fontWeight: 'bold', marginBottom: '5px' }}>{settings.storeName.toUpperCase()}</h1>
+          {settings.address && <p style={{ fontSize: '10pt', margin: '2px 0' }}>{settings.address}</p>}
+          <div style={{ borderBottom: '2px solid black', margin: '15px 0' }}></div>
+          <h2 style={{ fontSize: '16pt', fontWeight: 'bold' }}>RELATÓRIO DE MOVIMENTAÇÃO FINANCEIRA</h2>
+          <p style={{ fontSize: '11pt', marginTop: '10px' }}>
+            DATA: {filterDay !== 0 ? `${filterDay} de ` : ''}{months[filterMonth - 1]} de {filterYear}
           </p>
-          <p style={{ fontSize: '10pt', marginTop: '5px' }}>Gerado em: {new Date().toLocaleString('pt-BR')}</p>
+          <p style={{ fontSize: '9pt', marginTop: '5px' }}>Documento extraído em: {new Date().toLocaleString('pt-BR')}</p>
         </div>
 
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ backgroundColor: '#f0f0f0', borderBottom: '2px solid black' }}>
-              <th style={{ padding: '12px', textAlign: 'left' }}>PRODUTO</th>
-              <th style={{ padding: '12px', textAlign: 'center' }}>QTD</th>
-              <th style={{ padding: '12px', textAlign: 'right' }}>SUBTOTAL (R$)</th>
+            <tr style={{ backgroundColor: '#f5f5f5', borderBottom: '2px solid black' }}>
+              <th style={{ padding: '10px', textAlign: 'left', fontSize: '10pt' }}>DESCRIÇÃO DO ITEM</th>
+              <th style={{ padding: '10px', textAlign: 'center', fontSize: '10pt' }}>VOL / QTD</th>
+              <th style={{ padding: '10px', textAlign: 'right', fontSize: '10pt' }}>TOTAL (R$)</th>
             </tr>
           </thead>
           <tbody>
             {salesByProduct.map((item, idx) => (
-              <tr key={idx} style={{ borderBottom: '1px solid #ddd' }}>
-                <td style={{ padding: '10px' }}>{item.name.toUpperCase()}</td>
-                <td style={{ padding: '10px', textAlign: 'center' }}>{item.isByWeight ? `${item.quantity.toFixed(3)}kg` : item.quantity}</td>
-                <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold' }}>{item.total.toFixed(2)}</td>
+              <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
+                <td style={{ padding: '8px', fontSize: '9pt' }}>{item.name.toUpperCase()}</td>
+                <td style={{ padding: '8px', textAlign: 'center', fontSize: '9pt' }}>{item.isByWeight ? `${item.quantity.toFixed(3)}kg` : item.quantity}</td>
+                <td style={{ padding: '8px', textAlign: 'right', fontWeight: 'bold', fontSize: '9pt' }}>{item.total.toFixed(2)}</td>
               </tr>
             ))}
           </tbody>
           <tfoot>
-            <tr style={{ borderTop: '3px solid black' }}>
-              <td colSpan={2} style={{ padding: '20px 10px', textAlign: 'right', fontSize: '14pt', fontWeight: 'bold' }}>TOTAL NO PERÍODO:</td>
-              <td style={{ padding: '20px 10px', textAlign: 'right', fontSize: '16pt', fontWeight: 'bold' }}>R$ {totalSales.toFixed(2)}</td>
+            <tr style={{ borderTop: '2px solid black' }}>
+              <td colSpan={2} style={{ padding: '15px 10px', textAlign: 'right', fontSize: '12pt', fontWeight: 'bold' }}>FATURAMENTO TOTAL:</td>
+              <td style={{ padding: '15px 10px', textAlign: 'right', fontSize: '14pt', fontWeight: 'bold' }}>R$ {totalSales.toFixed(2)}</td>
             </tr>
           </tfoot>
         </table>
+        
+        <div style={{ marginTop: '30px', borderTop: '1px dashed #ccc', paddingTop: '10px', textAlign: 'center' }}>
+          <p style={{ fontSize: '8pt', color: '#666' }}>Fim do Relatório - G & C Conveniência</p>
+        </div>
       </div>
     </div>
   );
