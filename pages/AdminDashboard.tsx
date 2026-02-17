@@ -17,7 +17,12 @@ import {
   ChevronDown,
   ChefHat,
   UserRound,
-  Tv
+  Tv,
+  Smartphone,
+  QrCode,
+  Copy,
+  Check,
+  Share2
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
@@ -28,10 +33,9 @@ interface Props {
 }
 
 const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
-  const [isPrinting, setIsPrinting] = useState(false);
   const [searchParams] = useSearchParams();
+  const [copied, setCopied] = useState(false);
   
-  // Detecção robusta do slug para os links
   const storeSlug = useMemo(() => {
     const slug = searchParams.get('loja');
     if (slug) return slug;
@@ -43,7 +47,6 @@ const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
   const currentMonthValue = now.getMonth() + 1;
   const currentYearValue = now.getFullYear();
 
-  // Filtro fixo no mês atual conforme solicitado
   const [filterMonth] = useState<number>(currentMonthValue);
   const [filterDay, setFilterDay] = useState<number>(0); 
   const [filterYear] = useState<number>(currentYearValue);
@@ -67,18 +70,13 @@ const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
   
   const salesByProduct = useMemo(() => {
     const map = new Map<string, { name: string, category: string, quantity: number, total: number, isByWeight: boolean }>();
-
-    filteredOrders
-      .filter(o => o.status !== 'CANCELADO')
-      .forEach(order => {
-        const items = Array.isArray(order.items) ? order.items : [];
-        items.forEach(item => {
+    filteredOrders.filter(o => o.status !== 'CANCELADO').forEach(order => {
+        (order.items || []).forEach(item => {
           const productId = item.productId || 'unknown';
           const existing = map.get(productId);
           const qty = Number(item.quantity) || 0;
           const price = Number(item.price) || 0;
           const subtotal = price * qty;
-
           if (existing) {
             existing.quantity += qty;
             existing.total += subtotal;
@@ -94,272 +92,178 @@ const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
           }
         });
       });
-
     return Array.from(map.values()).sort((a, b) => b.total - a.total);
   }, [filteredOrders, products]);
 
-  const handlePrintReport = () => {
-    setIsPrinting(true);
-    setTimeout(() => {
-      window.print();
-      setIsPrinting(false);
-    }, 300);
+  const handleCopyLink = () => {
+    const url = `${window.location.origin}/#/cardapio?loja=${storeSlug}`;
+    navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
-  const months = [
-    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
-  ];
-
-  const chartData = [
-    { name: 'Seg', sales: 400 },
-    { name: 'Ter', sales: 300 },
-    { name: 'Qua', sales: 600 },
-    { name: 'Qui', sales: 800 },
-    { name: 'Sex', sales: 500 },
-    { name: 'Sáb', sales: 900 },
-    { name: 'Dom', sales: 700 },
-  ];
-
   const lojaParam = storeSlug ? `?loja=${storeSlug}` : '';
-  const menuUrl = `#/cardapio${lojaParam}`;
 
   return (
     <div className="space-y-8 pb-12 text-zinc-900 animate-fade-in">
-      <style>{`
-        @media print {
-          @page { margin: 0; size: auto; }
-          html, body { 
-            margin: 0 !important; 
-            padding: 0 !important; 
-            background: #fff !important;
-            height: auto !important;
-            overflow: visible !important;
-          }
-          #root { display: none !important; }
-          body > * { display: none !important; }
-          #sales-report-print {
-            display: block !important;
-            position: relative !important;
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 10mm !important;
-            visibility: visible !important;
-            overflow: visible !important;
-          }
-          #sales-report-print * {
-            visibility: visible !important;
-          }
-        }
-      `}</style>
-
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
            <h1 className="text-3xl font-brand font-bold text-gray-800">Boas-vindas ao Gestor</h1>
            <p className="text-gray-500 text-sm">Controle sua operação em tempo real.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button onClick={handlePrintReport} className="flex items-center gap-2 px-4 py-3 bg-white border border-gray-200 text-primary rounded-xl font-bold shadow-sm hover:bg-gray-50 transition-all text-xs">
+          <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-3 bg-white border border-gray-200 text-primary rounded-xl font-bold shadow-sm hover:bg-gray-50 transition-all text-xs">
             <Printer size={16} className="text-secondary" /> Imprimir Relatório
           </button>
-          <a href={menuUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-4 py-3 bg-primary text-white rounded-xl font-bold shadow-xl hover:opacity-90 transition-all text-xs">
-            <Utensils size={16} /> Ver Cardápio Público <ExternalLink size={12} />
-          </a>
         </div>
-      </div>
-
-      <section className="space-y-3">
-        <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">Atalhos da Equipe (Nova Guia)</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <OpPanelLink 
-            to={`atendimento${lojaParam}`} 
-            label="Painel Atendente" 
-            icon={<UserRound size={24} />} 
-            color="bg-orange-50 text-orange-600 border-orange-100" 
-          />
-          <OpPanelLink 
-            to={`cozinha${lojaParam}`} 
-            label="Painel Cozinha" 
-            icon={<ChefHat size={24} />} 
-            color="bg-blue-50 text-blue-600 border-blue-100" 
-          />
-          <OpPanelLink 
-            to={`tv${lojaParam}`} 
-            label="Painel TV" 
-            icon={<Tv size={24} />} 
-            color="bg-purple-50 text-purple-600 border-purple-100" 
-          />
-        </div>
-      </section>
-
-      <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 flex flex-wrap gap-6 items-center">
-        <div className="space-y-1">
-          <label className="text-[10px] font-black uppercase text-gray-400 ml-1 tracking-widest flex items-center gap-1">
-            <Calendar size={12} /> Mês Vigente
-          </label>
-          <div className="px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold text-sm text-primary flex items-center gap-2">
-             <span className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
-             {months[filterMonth - 1]}
-          </div>
-        </div>
-
-        <div className="space-y-1">
-          <label className="text-[10px] font-black uppercase text-gray-400 ml-1 tracking-widest flex items-center gap-1">
-            <Filter size={12} /> Selecionar Dia
-          </label>
-          <div className="relative">
-            <select 
-              value={filterDay} 
-              onChange={(e) => setFilterDay(Number(e.target.value))}
-              className="appearance-none pl-4 pr-10 py-3 bg-white border border-gray-100 rounded-xl outline-none font-bold text-sm focus:ring-2 focus:ring-secondary/20 transition-all min-w-[160px]"
-            >
-              <option value={0}>Todos os dias</option>
-              {Array.from({length: 31}, (_, i) => i + 1).map(d => <option key={d} value={d}>{d} de {months[filterMonth - 1]}</option>)}
-            </select>
-            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <StatCard title="Faturamento" value={`R$ ${totalSales.toFixed(2)}`} icon={<DollarSign className="text-green-600" />} color="bg-green-50" />
-        <StatCard title="Pedidos" value={totalOrdersCount.toString()} icon={<ShoppingBag className="text-orange-600" />} color="bg-orange-50" />
-        <StatCard title="Cancelados" value={canceledOrdersCount.toString()} icon={<XCircle className="text-red-600" />} color="bg-red-50" />
-        <StatCard title="Média Ticket" value={`R$ ${(totalSales / (totalOrdersCount || 1)).toFixed(2)}`} icon={<Zap className="text-blue-600" />} color="bg-blue-50" />
-        <StatCard title="Filtrados" value={filteredOrders.length.toString()} icon={<Clock className="text-purple-600" />} color="bg-purple-50" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-8 bg-white p-6 md:p-8 rounded-[2.5rem] shadow-sm border border-gray-100 flex flex-col min-h-[400px]">
-          <h2 className="text-lg font-bold text-gray-800 mb-8">Performance Semanal</h2>
-          <div className="flex-1 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#9ca3af'}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#9ca3af'}} />
-                <Tooltip cursor={{fill: '#f9fafb'}} contentStyle={{borderRadius: '12px', border: 'none'}} />
-                <Bar dataKey="sales" radius={[8, 8, 0, 0]}>
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={index === 5 ? 'var(--secondary-color)' : '#e5e7eb'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="lg:col-span-4 space-y-6">
-          <div className="bg-primary p-8 rounded-[2.5rem] shadow-2xl text-white">
-            <TrendingUp className="text-secondary mb-4" size={32} />
-            <h3 className="text-xl font-bold mb-4">Top 3 Vendidos</h3>
-            <div className="space-y-4">
-              {salesByProduct.slice(0, 3).map((item, i) => (
-                <div key={i} className="flex justify-between items-center text-sm border-b border-white/10 pb-2">
-                  <p className="font-bold truncate text-white">{item.name}</p>
-                  <span className="font-bold text-secondary">R$ {item.total.toFixed(2)}</span>
+        <div className="lg:col-span-8 space-y-8">
+            <section className="space-y-3">
+                <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">Painéis Operacionais</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <OpPanelLink to={`/atendimento${lojaParam}`} label="Atendimento" icon={<UserRound size={24} />} color="bg-orange-50 text-orange-600 border-orange-100" />
+                    <OpPanelLink to={`/cozinha${lojaParam}`} label="Cozinha" icon={<ChefHat size={24} />} color="bg-blue-50 text-blue-600 border-blue-100" />
+                    <OpPanelLink to={`/tv${lojaParam}`} label="Painel TV" icon={<Tv size={24} />} color="bg-purple-50 text-purple-600 border-purple-100" />
                 </div>
-              ))}
+            </section>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <StatCard icon={<TrendingUp className="text-green-500" />} label="Vendas (Mês)" value={`R$ ${totalSales.toFixed(2)}`} color="bg-green-50" />
+                <StatCard icon={<ShoppingBag className="text-blue-500" />} label="Pedidos" value={totalOrdersCount.toString()} color="bg-blue-50" />
+                <StatCard icon={<XCircle className="text-red-500" />} label="Cancelados" value={canceledOrdersCount.toString()} color="bg-red-50" />
             </div>
-          </div>
-        </div>
-      </div>
 
-      <section className="bg-white p-6 md:p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
-        <div className="flex items-center justify-between mb-6">
-           <h2 className="text-xl font-bold text-gray-800">Produtos Vendidos</h2>
-        </div>
-        <div className="overflow-x-auto custom-scrollbar">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="border-b border-gray-100">
-                <th className="py-4 px-4 text-[10px] font-black uppercase text-gray-400">Produto</th>
-                <th className="py-4 px-4 text-[10px] font-black uppercase text-gray-400 text-center">Quantidade</th>
-                <th className="py-4 px-4 text-[10px] font-black uppercase text-gray-400 text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {salesByProduct.length > 0 ? salesByProduct.map((item, idx) => (
-                <tr key={idx} className="border-b border-gray-50">
-                  <td className="py-4 px-4 font-bold text-sm text-gray-800">{item.name}</td>
-                  <td className="py-4 px-4 text-center text-sm text-gray-600">{item.isByWeight ? `${item.quantity.toFixed(3)}kg` : `${item.quantity} un`}</td>
-                  <td className="py-4 px-4 text-right font-bold text-primary">R$ {item.total.toFixed(2)}</td>
-                </tr>
-              )) : <tr><td colSpan={3} className="py-12 text-center text-gray-400">Nenhuma venda encontrada no período.</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* Relatório Oculto para Impressão */}
-      <div id="sales-report-print" style={{ display: 'none' }}>
-        <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-          <h1 style={{ fontSize: '24pt', fontWeight: 'bold', marginBottom: '5px' }}>{settings.storeName.toUpperCase()}</h1>
-          {settings.address && <p style={{ fontSize: '10pt', margin: '2px 0' }}>{settings.address}</p>}
-          <div style={{ borderBottom: '2px solid black', margin: '15px 0' }}></div>
-          <h2 style={{ fontSize: '16pt', fontWeight: 'bold' }}>RELATÓRIO DE MOVIMENTAÇÃO FINANCEIRA</h2>
-          <p style={{ fontSize: '11pt', marginTop: '10px' }}>
-            DATA: {filterDay !== 0 ? `${filterDay} de ` : ''}{months[filterMonth - 1]} de {filterYear}
-          </p>
-          <p style={{ fontSize: '9pt', marginTop: '5px' }}>Documento extraído em: {new Date().toLocaleString('pt-BR')}</p>
+            <section className="bg-white p-8 rounded-[3rem] shadow-sm border border-gray-100">
+                <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                    <TrendingUp className="text-secondary" /> Faturamento Diário
+                </h2>
+                <div className="h-64 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={generateChartData(filteredOrders)}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
+                            <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 'bold'}} />
+                            <Tooltip cursor={{fill: '#f9fafb'}} contentStyle={{borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} />
+                            <Bar dataKey="sales" radius={[10, 10, 10, 10]} barSize={20}>
+                                {generateChartData(filteredOrders).map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={index === 5 || index === 6 ? '#f68c3e' : '#001F3F'} />
+                                ))}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            </section>
         </div>
 
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ backgroundColor: '#f5f5f5', borderBottom: '2px solid black' }}>
-              <th style={{ padding: '10px', textAlign: 'left', fontSize: '10pt' }}>DESCRIÇÃO DO ITEM</th>
-              <th style={{ padding: '10px', textAlign: 'center', fontSize: '10pt' }}>VOL / QTD</th>
-              <th style={{ padding: '10px', textAlign: 'right', fontSize: '10pt' }}>TOTAL (R$)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {salesByProduct.map((item, idx) => (
-              <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
-                <td style={{ padding: '8px', fontSize: '9pt' }}>{item.name.toUpperCase()}</td>
-                <td style={{ padding: '8px', textAlign: 'center', fontSize: '9pt' }}>{item.isByWeight ? `${item.quantity.toFixed(3)}kg` : item.quantity}</td>
-                <td style={{ padding: '8px', textAlign: 'right', fontWeight: 'bold', fontSize: '9pt' }}>{item.total.toFixed(2)}</td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr style={{ borderTop: '2px solid black' }}>
-              <td colSpan={2} style={{ padding: '15px 10px', textAlign: 'right', fontSize: '12pt', fontWeight: 'bold' }}>FATURAMENTO TOTAL:</td>
-              <td style={{ padding: '15px 10px', textAlign: 'right', fontSize: '14pt', fontWeight: 'bold' }}>R$ {totalSales.toFixed(2)}</td>
-            </tr>
-          </tfoot>
-        </table>
-        
-        <div style={{ marginTop: '30px', borderTop: '1px dashed #ccc', paddingTop: '10px', textAlign: 'center' }}>
-          <p style={{ fontSize: '8pt', color: '#666' }}>Fim do Relatório - G & C Conveniência</p>
+        <div className="lg:col-span-4 space-y-8">
+            {/* NOVO: Seção de Divulgação e Instalação do App */}
+            <section className="bg-primary text-white p-8 rounded-[3rem] shadow-xl relative overflow-hidden">
+                <div className="absolute -top-10 -right-10 w-32 h-32 bg-secondary opacity-20 rounded-full blur-3xl"></div>
+                <h2 className="text-xl font-brand font-bold mb-2 flex items-center gap-2">
+                    <Smartphone className="text-secondary" /> Seu App na Mão
+                </h2>
+                <p className="text-white/60 text-xs mb-6 font-medium leading-relaxed">
+                    Divulgue seu cardápio para os clientes instalarem o WebApp da sua unidade.
+                </p>
+
+                <div className="bg-white p-6 rounded-[2.5rem] flex flex-col items-center mb-6 shadow-2xl">
+                    <div className="bg-slate-50 p-4 rounded-3xl border border-slate-100 mb-4">
+                        <img 
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`${window.location.origin}/#/cardapio?loja=${storeSlug}`)}`} 
+                          alt="QR Code da Loja"
+                          className="w-32 h-32"
+                        />
+                    </div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">QR Code para Mesas ou Delivery</p>
+                </div>
+
+                <div className="space-y-3">
+                    <button 
+                        onClick={handleCopyLink}
+                        className="w-full flex items-center justify-between p-4 bg-white/10 hover:bg-white/20 rounded-2xl border border-white/10 transition-all group"
+                    >
+                        <div className="flex items-center gap-3">
+                            <Copy size={18} className="text-secondary" />
+                            <span className="text-xs font-bold">Copiar Link do App</span>
+                        </div>
+                        {copied ? <Check size={16} className="text-green-400" /> : <ChevronDown size={16} className="-rotate-90 opacity-20" />}
+                    </button>
+                    <a 
+                      href={`/#/cardapio${lojaParam}`} 
+                      target="_blank" 
+                      rel="noreferrer" 
+                      className="w-full flex items-center justify-between p-4 bg-secondary text-primary rounded-2xl font-bold transition-all shadow-lg active:scale-95"
+                    >
+                        <div className="flex items-center gap-3">
+                            <ExternalLink size={18} />
+                            <span className="text-xs uppercase tracking-wider font-black">Abrir Menu em Nova Aba</span>
+                        </div>
+                    </a>
+                </div>
+            </section>
+
+            <section className="bg-white p-8 rounded-[3rem] shadow-sm border border-gray-100">
+                <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                    <ShoppingBag className="text-secondary" /> Mais Vendidos
+                </h2>
+                <div className="space-y-4">
+                    {salesByProduct.slice(0, 5).map((prod, idx) => (
+                        <div key={idx} className="flex items-center gap-4 group">
+                            <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center font-black text-gray-400 border border-gray-100 group-hover:bg-orange-50 group-hover:text-orange-500 transition-colors">
+                                {idx + 1}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="font-bold text-gray-800 truncate text-sm">{prod.name}</p>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] text-gray-400 uppercase font-black">{prod.category}</span>
+                                    <span className="text-[10px] text-gray-300">•</span>
+                                    <span className="text-[10px] font-bold text-secondary">
+                                        {prod.isByWeight ? `${prod.quantity.toFixed(3)}kg` : `${prod.quantity} un`}
+                                    </span>
+                                </div>
+                            </div>
+                            <p className="font-bold text-gray-800 text-sm">R$ {prod.total.toFixed(2)}</p>
+                        </div>
+                    ))}
+                    {salesByProduct.length === 0 && (
+                        <p className="text-center py-10 text-gray-400 italic text-sm">Nenhuma venda registrada no período.</p>
+                    )}
+                </div>
+            </section>
         </div>
       </div>
     </div>
   );
 };
 
-const OpPanelLink = ({ to, label, icon, color }: { to: string, label: string, icon: React.ReactNode, color: string }) => (
-  <a 
-    href={`#/${to}`} 
-    target="_blank" 
-    rel="noopener noreferrer" 
-    className={`flex items-center gap-4 p-5 rounded-[1.5rem] border transition-all active:scale-95 hover:shadow-md ${color}`}
-  >
-    <div className="p-3 bg-white rounded-xl shadow-sm">{icon}</div>
-    <div>
-      <p className="font-bold text-sm leading-none">{label}</p>
-      <p className="text-[10px] font-bold opacity-60 uppercase mt-1 tracking-widest">Abrir em Nova Guia</p>
+const StatCard = ({ icon, label, value, color }: any) => (
+    <div className={`${color} p-6 rounded-[2.5rem] flex items-center gap-5 border border-white/50 shadow-sm hover:shadow-lg transition-all`}>
+        <div className="p-4 bg-white rounded-3xl shadow-sm">{icon}</div>
+        <div>
+            <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest leading-none mb-1">{label}</p>
+            <p className="text-xl font-black text-gray-800">{value}</p>
+        </div>
     </div>
-  </a>
 );
 
-const StatCard = ({ title, value, icon, color }: { title: string, value: string, icon: React.ReactNode, color: string }) => (
-  <div className="stat-card bg-white p-4 md:p-6 rounded-[2rem] shadow-sm border border-gray-100 flex items-center gap-3">
-    <div className={`w-10 h-10 md:w-14 md:h-14 rounded-2xl ${color} flex items-center justify-center shrink-0 shadow-inner`}>{icon}</div>
-    <div className="min-w-0">
-      <p className="text-[8px] md:text-[10px] text-gray-400 font-bold uppercase tracking-widest truncate">{title}</p>
-      <p className="text-sm md:text-xl font-black text-gray-900 truncate leading-none">{value}</p>
-    </div>
-  </div>
+const OpPanelLink = ({ to, label, icon, color }: any) => (
+    <a href={`#${to}`} target="_blank" rel="noreferrer" className={`p-6 rounded-[2.5rem] flex flex-col items-center gap-3 border transition-all active:scale-95 ${color} shadow-sm hover:shadow-xl group`}>
+        <div className="p-3 bg-white rounded-2xl shadow-sm transition-transform group-hover:scale-110">{icon}</div>
+        <span className="text-xs font-black uppercase tracking-widest">{label}</span>
+    </a>
 );
+
+const generateChartData = (orders: Order[]) => {
+    const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    const data = days.map(d => ({ name: d, sales: 0 }));
+    orders.filter(o => o.status !== 'CANCELADO').forEach(o => {
+        const day = new Date(o.createdAt).getDay();
+        data[day].sales += Number(o.total) || 0;
+    });
+    // Reorder to start from Monday
+    return [...data.slice(1), data[0]];
+};
 
 export default AdminDashboard;

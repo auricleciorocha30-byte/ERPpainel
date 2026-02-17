@@ -18,7 +18,8 @@ import {
   Monitor,
   Download,
   Share,
-  PlusSquare
+  PlusSquare,
+  QrCode
 } from 'lucide-react';
 
 interface Props {
@@ -47,19 +48,16 @@ export default function LoginPage({ onLoginSuccess }: Props) {
     const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
     setIsIOS(isIOSDevice);
 
-    window.addEventListener('beforeinstallprompt', (e) => {
+    const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
       setIsInstallable(true);
-    });
+    };
 
-    window.addEventListener('appinstalled', () => {
-      setIsInstallable(false);
-      setDeferredPrompt(null);
-    });
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
     return () => {
-      window.removeEventListener('beforeinstallprompt', () => {});
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
   }, []);
 
@@ -102,11 +100,9 @@ export default function LoginPage({ onLoginSuccess }: Props) {
         
         onLoginSuccess(userData);
 
-        // Redirecionamento inteligente após login
         if (intendedDestination) {
           navigate(`${intendedDestination}${lojaParam}`);
         } else {
-          // Fallback padrão
           if (userData.role === 'GERENTE') navigate(`/${lojaParam}`);
           else navigate(`/atendimento${lojaParam}`);
         }
@@ -120,7 +116,6 @@ export default function LoginPage({ onLoginSuccess }: Props) {
 
   const handlePortalAction = (target: string, requiresAuth: boolean) => {
     if (requiresAuth) {
-      // Verifica se já existe sessão no localStorage antes de mudar a view
       const session = localStorage.getItem('gc-conveniencia-session-v1');
       if (session) {
         navigate(`${target}${lojaParam}`);
@@ -164,30 +159,11 @@ export default function LoginPage({ onLoginSuccess }: Props) {
               <Store size={40} />
             </div>
             <h1 className="text-2xl md:text-3xl font-brand font-bold text-primary">Portal do Colaborador</h1>
-            <p className="text-xs md:text-sm text-gray-400 mt-2 uppercase font-black tracking-widest">Identificação de Unidade</p>
+            <p className="text-xs md:text-sm text-gray-400 mt-2 uppercase font-black tracking-widest">Acesso Unidade: {storeSlug || 'Master'}</p>
           </div>
 
           {view === 'hub' ? (
             <div className="space-y-6">
-              {isInstallable && (
-                <button 
-                  onClick={handleInstallClick}
-                  className="w-full flex items-center justify-center gap-3 p-4 bg-secondary text-primary rounded-2xl font-bold shadow-lg hover:shadow-xl transition-all active:scale-95 animate-bounce mb-2"
-                >
-                  <Download size={20} />
-                  <span>INSTALAR SISTEMA (APP)</span>
-                </button>
-              )}
-
-              {isIOS && (
-                <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl space-y-2 mb-2">
-                  <p className="text-[10px] font-black text-blue-800 uppercase tracking-widest text-center">Instalar no iPhone (iOS)</p>
-                  <div className="flex items-center justify-center gap-2 text-[11px] text-blue-700 font-medium">
-                    <span>Toque em</span> <Share size={14} /> <span>e depois em</span> <PlusSquare size={14} /> <span>"Tela de Início"</span>
-                  </div>
-                </div>
-              )}
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-scale-up">
                 <PortalButton 
                   icon={UserRound} 
@@ -227,6 +203,57 @@ export default function LoginPage({ onLoginSuccess }: Props) {
                   <ArrowRight size={20} className="text-white/20 group-hover:text-secondary group-hover:translate-x-1 transition-all" />
                 </button>
               </div>
+
+              {/* Seção de Instalação PWA Dinâmica */}
+              <div className="pt-4 space-y-4">
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                    <div className="w-full border-t border-gray-100"></div>
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase font-black tracking-widest text-gray-300">
+                    <span className="bg-white px-4">Instalar no Dispositivo</span>
+                  </div>
+                </div>
+
+                {isInstallable ? (
+                  <button 
+                    onClick={handleInstallClick}
+                    className="w-full flex items-center justify-between p-5 bg-gradient-to-r from-secondary to-orange-400 text-primary rounded-3xl font-bold shadow-xl shadow-orange-500/10 hover:shadow-2xl hover:scale-[1.02] transition-all active:scale-95"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 bg-white/20 rounded-2xl"><Download size={24} /></div>
+                      <div className="text-left">
+                        <p className="text-sm font-black uppercase leading-none mb-1">Baixar Aplicativo</p>
+                        <p className="text-[10px] opacity-70">Acesso rápido e offline</p>
+                      </div>
+                    </div>
+                    <ArrowRight size={20} />
+                  </button>
+                ) : isIOS ? (
+                  <div className="bg-blue-50 border border-blue-100 p-6 rounded-[2.5rem] space-y-4">
+                    <div className="flex items-center gap-3">
+                      <Smartphone className="text-blue-600" size={24} />
+                      <p className="text-xs font-bold text-blue-800 uppercase tracking-wider">Instalar no seu iPhone</p>
+                    </div>
+                    <div className="flex items-center justify-between gap-2 px-4 py-3 bg-white rounded-2xl border border-blue-100 shadow-sm">
+                      <div className="flex items-center gap-2 text-[11px] font-bold text-blue-700">
+                        <span>Toque em</span> <Share size={18} className="text-blue-500" />
+                      </div>
+                      <ArrowRight size={14} className="text-blue-200" />
+                      <div className="flex items-center gap-2 text-[11px] font-bold text-blue-700">
+                         <span>depois em</span> <PlusSquare size={18} className="text-blue-500" />
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-blue-400 text-center font-bold">"ADICIONAR À TELA DE INÍCIO"</p>
+                  </div>
+                ) : (
+                  <div className="p-6 bg-slate-50 border border-slate-100 rounded-[2.5rem] text-center">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">
+                      Este sistema já está pronto para uso mobile. <br/> Use o navegador Chrome para melhor experiência.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <div className="space-y-8 animate-scale-up">
@@ -240,7 +267,7 @@ export default function LoginPage({ onLoginSuccess }: Props) {
               <div className="bg-orange-50 p-4 rounded-2xl border border-orange-100 flex items-center gap-3 mb-4">
                 <div className="p-2 bg-white rounded-lg text-orange-500 shadow-sm"><Lock size={16} /></div>
                 <p className="text-[10px] font-black text-orange-800 uppercase tracking-widest leading-tight">
-                  {intendedDestination === '/atendimento' ? 'Identifique-se para acessar as mesas' : 'Acesso restrito para gerentes'}
+                  Acesso restrito à unidade: {storeSlug || 'Master'}
                 </p>
               </div>
 
@@ -301,27 +328,14 @@ export default function LoginPage({ onLoginSuccess }: Props) {
           )}
 
           <div className="pt-6 border-t border-gray-100 text-center space-y-4">
-            <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.3em]">Setup & Atalhos</p>
+            <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.3em]">Canais de Suporte</p>
             <div className="flex flex-wrap justify-center gap-4">
-              <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400">
-                <Smartphone size={14} /> Mobile
-              </div>
-              <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400">
-                <Monitor size={14} /> Desktop
-              </div>
-              <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400">
-                <Tv size={14} /> Smart TV
-              </div>
-            </div>
-            <div className="pt-4">
-               <a 
-                href="https://wa.me/5585987582159" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-1.5 text-[10px] font-bold text-secondary hover:text-orange-600 transition-colors"
-              >
-                SUPORTE TÉCNICO CENTRAL
+              <a href="https://wa.me/5585987582159" target="_blank" className="flex items-center gap-2 text-[10px] font-bold text-green-500">
+                <Smartphone size={14} /> WhatsApp Suporte
               </a>
+              <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400">
+                <Monitor size={14} /> Central v2.4
+              </div>
             </div>
           </div>
 

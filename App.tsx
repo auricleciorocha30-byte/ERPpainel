@@ -46,6 +46,7 @@ const SOUNDS = {
 };
 
 const SESSION_KEY = 'gc-conveniencia-session-v1';
+const METADATA_CACHE_KEY = 'gc-metadata-cache-v1';
 
 export default function App() {
   return (
@@ -90,6 +91,7 @@ function StoreContext() {
   const [activeTable, setActiveTable] = useState<string | null>(null);
   const initialLoadRef = useRef(true);
   const ordersRef = useRef<Order[]>([]);
+  const syncIntervalRef = useRef<any>(null);
 
   const handleSetUser = (user: Waitstaff | null) => {
     if (user) {
@@ -103,7 +105,7 @@ function StoreContext() {
   const playAudio = (url: string) => {
     const audio = new Audio(url);
     audio.crossOrigin = "anonymous";
-    audio.play().catch(e => console.warn('Som bloqueado pelo navegador:', e));
+    audio.play().catch(e => console.warn('Som bloqueado:', e));
   };
 
   const applyColors = useCallback((s: StoreSettings) => {
@@ -116,10 +118,9 @@ function StoreContext() {
       fetchStoreContext(storeSlug);
     } else {
       setLoadingStore(false);
-      document.documentElement.style.setProperty('--primary-color', '#001F3F');
-      document.documentElement.style.setProperty('--secondary-color', '#FFD700');
+      applyColors(INITIAL_SETTINGS);
     }
-  }, [storeSlug]);
+  }, [storeSlug, applyColors]);
 
   const fetchStoreContext = async (slug: string) => {
     setLoadingStore(true);
@@ -135,11 +136,10 @@ function StoreContext() {
       if (!data) {
         setStoreError({message: 'Loja não encontrada.', isSuspended: false});
       } else if (!data.isActive && data.isactive !== true) {
-        setStoreError({message: 'Esta conta está temporariamente suspensa por questões administrativas.', isSuspended: true});
+        setStoreError({message: 'Esta conta está temporariamente suspensa.', isSuspended: true});
       } else {
         const storeData = data as any;
-        const settingsRaw = storeData.settings;
-        const parsedSettings = typeof settingsRaw === 'string' ? JSON.parse(settingsRaw) : settingsRaw;
+        const parsedSettings = typeof storeData.settings === 'string' ? JSON.parse(storeData.settings) : storeData.settings;
         
         setCurrentStore({ 
           ...storeData, 
@@ -150,13 +150,13 @@ function StoreContext() {
         applyColors(parsedSettings);
       }
     } catch (err) {
-      setStoreError({message: 'Erro ao carregar os dados da unidade.', isSuspended: false});
+      setStoreError({message: 'Erro ao carregar unidade.', isSuspended: false});
     } finally {
       setLoadingStore(false);
     }
   };
 
-  const mapOrderFromDb = (dbOrder: any): Order => ({
+  const mapOrderFromDb = useCallback((dbOrder: any): Order => ({
     id: dbOrder.id.toString(),
     type: dbOrder.type,
     items: typeof dbOrder.items === 'string' ? JSON.parse(dbOrder.items) : dbOrder.items,
@@ -174,9 +174,9 @@ function StoreContext() {
     couponApplied: dbOrder.couponApplied || dbOrder.couponapplied || dbOrder.coupon_applied,
     discountAmount: Number(dbOrder.discountAmount || dbOrder.discountamount || dbOrder.discount_amount || 0),
     isSynced: true
-  });
+  }), []);
 
-  const mapProductFromDb = (p: any): Product => ({
+  const mapProductFromDb = useCallback((p: any): Product => ({
     id: p.id.toString(),
     name: p.name,
     description: p.description || '',
@@ -186,19 +186,21 @@ function StoreContext() {
     isActive: p.isActive ?? p.isactive ?? p.is_active ?? true,
     featuredDay: p.featuredDay ?? p.featuredday ?? p.featured_day,
     isByWeight: p.isByWeight ?? p.isbyweight ?? p.is_by_weight ?? false
-  });
+  }), []);
 
   useEffect(() => {
     if (!currentStore) return;
 
     const syncOrders = async () => {
+      if (document.hidden) return; // Economiza Neon CU-hrs pausando queries em abas ocultas
+
       try {
         const { data } = await supabase
           .from('orders')
           .select('*')
           .eq('store_id', currentStore.id)
           .order('id', { ascending: false })
-          .limit(100);
+          .limit(30);
 
         if (data) {
           const newOrders = data.map(mapOrderFromDb);
@@ -213,23 +215,65 @@ function StoreContext() {
           setOrders(newOrders);
           initialLoadRef.current = false;
         }
-      } catch (err) { console.warn('Erro Sync Neon'); }
+      } catch (err) { console.warn('Erro Sync'); }
     };
 
     const fetchMetadata = async () => {
+      // Tenta recuperar do cache local para evitar queries redundantes ao Neon
+      const cached = localStorage.getItem(`${METADATA_CACHE_KEY}_${currentStore.id}`);
+      if (cached) {
+        const { products: p, categories: c, time } = JSON.parse(cached);
+        if (Date.now() - time < 600000) { // Cache de 10 minutos
+          setProducts(p);
+          setCategories(c);
+          return;
+        }
+      }
+
       const [pRes, cRes] = await Promise.all([
         supabase.from('products').select('*').eq('store_id', currentStore.id),
         supabase.from('categories').select('*').eq('store_id', currentStore.id)
       ]);
-      if (pRes.data) setProducts(pRes.data.map(mapProductFromDb));
-      if (cRes.data) setCategories(cRes.data.map((c: any) => c.name));
+      
+      if (pRes.data) {
+        const mappedP = pRes.data.map(mapProductFromDb);
+        setProducts(mappedP);
+        const cats = cRes.data ? cRes.data.map((c: any) => c.name) : [];
+        setCategories(cats);
+        
+        localStorage.setItem(`${METADATA_CACHE_KEY}_${currentStore.id}`, JSON.stringify({
+          products: mappedP,
+          categories: cats,
+          time: Date.now()
+        }));
+      }
     };
 
     fetchMetadata();
     syncOrders();
-    const interval = setInterval(syncOrders, 10000);
-    return () => clearInterval(interval);
-  }, [currentStore]);
+
+    const startPolling = () => {
+      if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
+      syncIntervalRef.current = setInterval(syncOrders, 20000); // Polling a cada 20s para balancear tempo real e economia
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
+      } else {
+        syncOrders();
+        startPolling();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    startPolling();
+
+    return () => {
+      if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [currentStore, mapOrderFromDb, mapProductFromDb]);
 
   const addOrder = async (order: Order) => {
     const dbOrder = {
@@ -307,19 +351,13 @@ function StoreContext() {
 
   return (
     <Routes>
-      {/* Rotas Operacionais Independentes com prioridade máxima */}
       <Route path="/atendimento" element={<AttendantPanel adminUser={adminUser} orders={orders} settings={settings} onSelectTable={setActiveTable} updateStatus={updateOrderStatus} onLogout={() => handleSetUser(null)} />} />
       <Route path="/cozinha" element={<KitchenBoard orders={orders} updateStatus={updateOrderStatus} />} />
       <Route path="/tv" element={<TVBoard orders={orders} settings={settings} products={products} />} />
       <Route path="/cardapio" element={<DigitalMenu products={products} categories={categories} settings={settings} orders={orders} addOrder={addOrder} tableNumber={activeTable} onLogout={() => setActiveTable(null)} isWaitstaff={!!adminUser} />} />
-      
-      {/* Rotas de Identidade e Master */}
       <Route path="/master" element={<SuperAdminPanel />} />
-      
-      {/* Rota de Login: Permite visualizar o HUB mesmo logado, permitindo troca de contexto operacional */}
       <Route path="/login" element={<LoginPage onLoginSuccess={handleSetUser} />} />
 
-      {/* Rota Raiz (Painel Admin) */}
       <Route path="/" element={
         !storeSlug ? <SuperAdminPanel /> : (
           adminUser ? (
@@ -332,8 +370,10 @@ function StoreContext() {
         <Route index element={<AdminDashboard orders={orders} products={products} settings={settings} />} />
         <Route path="cardapio-admin" element={<MenuManagement products={products} saveProduct={async (p) => { 
           await supabase.from('products').upsert([{ ...p, store_id: currentStore?.id }]);
+          localStorage.removeItem(`${METADATA_CACHE_KEY}_${currentStore?.id}`);
         }} deleteProduct={async (id) => {
           await supabase.from('products').eq('id', id).delete();
+          localStorage.removeItem(`${METADATA_CACHE_KEY}_${currentStore?.id}`);
         }} categories={categories} setCategories={setCategories} />} />
         <Route path="pedidos" element={<OrdersList orders={orders} updateStatus={updateOrderStatus} products={products} addOrder={addOrder} settings={settings} />} />
         <Route path="equipe" element={<WaitstaffManagement currentStore={currentStore!} settings={settings} onUpdateSettings={handleUpdateSettings} />} />
@@ -348,15 +388,7 @@ function StoreContext() {
 function AdminLayout({ settings, onLogout }: { settings: StoreSettings, onLogout: () => void }) {
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  
-  // Detecção robusta para o slug nos atalhos
-  const storeSlug = useMemo(() => {
-    const slug = searchParams.get('loja');
-    if (slug) return slug;
-    const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get('loja');
-  }, [searchParams]);
-
+  const storeSlug = useMemo(() => searchParams.get('loja'), [searchParams]);
   const lojaParam = storeSlug ? `?loja=${storeSlug}` : '';
 
   const menuItems = [
@@ -381,7 +413,6 @@ function AdminLayout({ settings, onLogout }: { settings: StoreSettings, onLogout
             </Link>
           ))}
           <div className="pt-6 pb-2 px-3 text-[10px] text-white/40 font-bold uppercase tracking-widest">Atalhos Externos</div>
-          {/* Garantido o prefixo #/ para rotas de hash em novas abas */}
           <a href={`#/atendimento${lojaParam}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-orange-400 font-bold"><UserRound size={20} /> Atendimento</a>
           <a href={`#/cardapio${lojaParam}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-secondary"><Utensils size={20} /> Cardápio</a>
           <a href={`#/cozinha${lojaParam}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 text-gray-300"><ChefHat size={20} /> Cozinha</a>

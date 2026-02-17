@@ -60,7 +60,6 @@ const SCHEMA_STATEMENTS = [
     couponApplied TEXT,
     discountAmount NUMERIC(10,2)
   )`,
-  // Migrations para garantir que colunas adicionadas recentemente existam
   `ALTER TABLE waitstaff ADD COLUMN IF NOT EXISTS store_id UUID;`,
   `ALTER TABLE categories ADD COLUMN IF NOT EXISTS store_id UUID;`,
   `ALTER TABLE products ADD COLUMN IF NOT EXISTS store_id UUID;`,
@@ -81,7 +80,7 @@ async function ensureSchema() {
       }
       schemaInitialized = true;
     } catch (err) {
-      console.error("Erro no Neon:", err);
+      console.error("Erro no Neon Schema:", err);
       initializationPromise = null;
       throw err;
     }
@@ -108,6 +107,7 @@ class NeonBridge {
   }
 
   eq(column: string, value: any) {
+    if (value === undefined || value === null) return this;
     const paramIndex = this.params.length + 1;
     this.queries.push(`${column.toLowerCase()} = $${paramIndex}`);
     this.params.push(value);
@@ -170,8 +170,7 @@ class NeonBridge {
         const columns = keys.map(k => `${k.toLowerCase()}`).join(', ');
         const queryStr = `INSERT INTO ${this.tableName} (${columns}) VALUES (${placeholders}) RETURNING *`;
         const res = await sql(queryStr, Object.values(val));
-        if (res && res.length > 0) results.push(res[0]);
-        else results.push(val); // Fallback caso o RETURNING * falhe no mock
+        results.push(res && res.length > 0 ? res[0] : val);
       }
       return { data: results, error: null };
     } catch (err: any) {
@@ -262,7 +261,7 @@ class NeonBridge {
           error: null 
         };
       }
-      return { data: { user: null }, error: { message: 'Credenciais inválidas ou loja incorreta' } };
+      return { data: { user: null }, error: { message: 'Credenciais inválidas' } };
     },
     signOut: async () => ({ error: null }),
     onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } })
