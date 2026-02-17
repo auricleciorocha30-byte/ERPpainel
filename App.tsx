@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation, Navigate, Outlet, useSearchParams } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -53,7 +53,29 @@ export default function App() {
 
 function StoreContext() {
   const [searchParams] = useSearchParams();
-  const storeSlug = searchParams.get('loja');
+  const location = useLocation();
+  
+  // Detecção robusta do slug
+  // Fix: Added missing useMemo import from 'react'
+  const storeSlug = useMemo(() => {
+    // 1. Tenta pegar do query param direto (HashRouter as vezes joga no final)
+    const slug = searchParams.get('loja');
+    if (slug) return slug;
+
+    // 2. Tenta pegar manualmente da URL caso o useSearchParams falhe no HashRouter
+    const urlParams = new URLSearchParams(window.location.search);
+    const mainSlug = urlParams.get('loja');
+    if (mainSlug) return mainSlug;
+
+    // 3. Tenta pegar da parte interna do hash
+    const hashPart = window.location.hash.split('?')[1];
+    if (hashPart) {
+        const hashParams = new URLSearchParams(hashPart);
+        return hashParams.get('loja');
+    }
+
+    return null;
+  }, [searchParams, location]);
   
   const [currentStore, setCurrentStore] = useState<StoreProfile | null>(null);
   const [loadingStore, setLoadingStore] = useState(!!storeSlug);
@@ -108,9 +130,6 @@ function StoreContext() {
         setStoreError('Esta conta está temporariamente suspensa.');
       } else {
         const storeData = data as any;
-        // Ajuste para suportar chaves minúsculas vindas do Neon
-        const storeName = storeData.name || storeData.name;
-        const logoUrl = storeData.logoUrl || storeData.logourl || INITIAL_SETTINGS.logoUrl;
         const settingsRaw = storeData.settings || storeData.settings;
         const parsedSettings = typeof settingsRaw === 'string' ? JSON.parse(settingsRaw) : settingsRaw;
         
@@ -135,7 +154,6 @@ function StoreContext() {
     items: typeof dbOrder.items === 'string' ? JSON.parse(dbOrder.items) : dbOrder.items,
     status: dbOrder.status,
     total: Number(dbOrder.total),
-    // Suporte a chaves minúsculas (Postgres unquoted)
     createdAt: Number(dbOrder.createdAt || dbOrder.createdat || dbOrder.created_at || Date.now()),
     tableNumber: dbOrder.tableNumber || dbOrder.tablenumber || dbOrder.table_number,
     customerName: dbOrder.customerName || dbOrder.customername || dbOrder.customer_name,
@@ -193,7 +211,7 @@ function StoreContext() {
     const fetchMetadata = async () => {
       const [pRes, cRes] = await Promise.all([
         supabase.from('products').select('*').eq('store_id', currentStore.id),
-        supabase.from('categories').select('*')
+        supabase.from('categories').select('*').eq('store_id', currentStore.id)
       ]);
       if (pRes.data) setProducts(pRes.data.map(mapProductFromDb));
       if (cRes.data) setCategories(cRes.data.map((c: any) => c.name));
@@ -286,7 +304,7 @@ function StoreContext() {
 function AdminLayout({ settings, onLogout }: { settings: StoreSettings, onLogout: () => void }) {
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const storeSlug = searchParams.get('loja');
+  const storeSlug = searchParams.get('loja') || new URLSearchParams(window.location.search).get('loja');
   const lojaParam = storeSlug ? `?loja=${storeSlug}` : '';
 
   const menuItems = [

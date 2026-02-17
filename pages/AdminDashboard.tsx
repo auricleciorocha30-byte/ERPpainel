@@ -1,5 +1,6 @@
 
 import React, { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Order, Product, StoreSettings } from '../types';
 import { 
   TrendingUp, 
@@ -28,6 +29,8 @@ interface Props {
 
 const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
   const [isPrinting, setIsPrinting] = useState(false);
+  const [searchParams] = useSearchParams();
+  const storeSlug = searchParams.get('loja');
   
   // Estados para Filtros
   const now = new Date();
@@ -108,6 +111,8 @@ const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
     { name: 'Dom', sales: 700 },
   ];
 
+  const menuUrl = storeSlug ? `/#/cardapio?loja=${storeSlug}` : '#/cardapio';
+
   return (
     <div className="space-y-8 pb-12 text-zinc-900 animate-fade-in">
       <style>{`
@@ -137,8 +142,8 @@ const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
           <button onClick={handlePrintReport} className="flex items-center gap-2 px-4 py-3 bg-white border border-gray-200 text-primary rounded-xl font-bold shadow-sm hover:bg-gray-50 transition-all text-xs">
             <Printer size={16} className="text-secondary" /> Imprimir Relatório
           </button>
-          <a href="#/cardapio" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-4 py-3 bg-primary text-white rounded-xl font-bold shadow-xl hover:opacity-90 transition-all text-xs">
-            <Utensils size={16} /> Ver Cardápio <ExternalLink size={12} />
+          <a href={menuUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-4 py-3 bg-primary text-white rounded-xl font-bold shadow-xl hover:opacity-90 transition-all text-xs">
+            <Utensils size={16} /> Ver Cardápio Público <ExternalLink size={12} />
           </a>
         </div>
       </div>
@@ -148,19 +153,19 @@ const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
         <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">Atalhos da Equipe (Nova Guia)</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <OpPanelLink 
-            to="#/atendimento" 
+            to={`#/atendimento?loja=${storeSlug}`} 
             label="Painel Atendente" 
             icon={<UserRound size={24} />} 
             color="bg-orange-50 text-orange-600 border-orange-100" 
           />
           <OpPanelLink 
-            to="#/cozinha" 
+            to={`#/cozinha?loja=${storeSlug}`} 
             label="Painel Cozinha" 
             icon={<ChefHat size={24} />} 
             color="bg-blue-50 text-blue-600 border-blue-100" 
           />
           <OpPanelLink 
-            to="#/tv" 
+            to={`#/tv?loja=${storeSlug}`} 
             label="Painel TV" 
             icon={<Tv size={24} />} 
             color="bg-purple-50 text-purple-600 border-purple-100" 
@@ -330,7 +335,7 @@ const OpPanelLink = ({ to, label, icon, color }: { to: string, label: string, ic
 );
 
 const StatCard = ({ title, value, icon, color }: { title: string, value: string, icon: React.ReactNode, color: string }) => (
-  <div className="bg-white p-4 md:p-6 rounded-[2rem] shadow-sm border border-gray-100 flex items-center gap-3">
+  <div className="stat-card bg-white p-4 md:p-6 rounded-[2rem] shadow-sm border border-gray-100 flex items-center gap-3">
     <div className={`w-10 h-10 md:w-14 md:h-14 rounded-2xl ${color} flex items-center justify-center shrink-0 shadow-inner`}>{icon}</div>
     <div className="min-w-0">
       <p className="text-[8px] md:text-[10px] text-gray-400 font-bold uppercase tracking-widest truncate">{title}</p>

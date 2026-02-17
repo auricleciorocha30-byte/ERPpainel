@@ -24,7 +24,9 @@ import {
   Layers,
   Edit2,
   ChevronRight,
-  ChevronLeft
+  ChevronLeft,
+  Settings,
+  Save
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { StoreProfile, Product } from '../types';
@@ -45,6 +47,16 @@ export default function SuperAdminPanel() {
   const [storeProducts, setStoreProducts] = useState<Product[]>([]);
   const [newCatName, setNewCatName] = useState('');
   const [isManagingContent, setIsManagingContent] = useState(false);
+  const [activeSubTab, setActiveSubTab] = useState<'perfil' | 'inventario'>('perfil');
+
+  // Estados para Edição de Perfil
+  const [editProfileData, setEditProfileData] = useState({
+    name: '',
+    slug: '',
+    address: '',
+    whatsapp: '',
+    logoUrl: ''
+  });
 
   // Estados para Novo Produto Manual
   const [showProductForm, setShowProductForm] = useState(false);
@@ -98,7 +110,15 @@ export default function SuperAdminPanel() {
 
   const handleManageContent = async (store: StoreProfile) => {
     setEditingStore(store);
+    setEditProfileData({
+      name: store.name,
+      slug: store.slug,
+      address: store.address,
+      whatsapp: store.whatsapp,
+      logoUrl: store.logoUrl
+    });
     setIsManagingContent(true);
+    setActiveSubTab('perfil');
     fetchStoreInventory(store.id);
   };
 
@@ -117,6 +137,39 @@ export default function SuperAdminPanel() {
         }));
         setStoreProducts(mappedProds);
     }
+  };
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingStore) return;
+    setIsSaving(true);
+    
+    const updatedSettings = {
+        ...editingStore.settings,
+        storeName: editProfileData.name,
+        logoUrl: editProfileData.logoUrl,
+        address: editProfileData.address,
+        whatsapp: editProfileData.whatsapp
+    };
+
+    const { error } = await supabase
+      .from('store_profiles')
+      .eq('id', editingStore.id)
+      .update({
+        name: editProfileData.name,
+        slug: editProfileData.slug,
+        address: editProfileData.address,
+        whatsapp: editProfileData.whatsapp,
+        logourl: editProfileData.logoUrl,
+        settings: JSON.stringify(updatedSettings)
+      });
+    
+    if (error) alert("Erro ao atualizar perfil");
+    else {
+      alert("Perfil atualizado com sucesso!");
+      fetchStores();
+    }
+    setIsSaving(false);
   };
 
   const handleAddCategory = async () => {
@@ -207,16 +260,25 @@ export default function SuperAdminPanel() {
     fetchStores();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, target: 'store' | 'product') => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, target: 'store' | 'product' | 'edit-perfil') => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        if (target === 'store') setFormData(prev => ({ ...prev, logoUrl: reader.result as string }));
-        else setProductFormData(prev => ({ ...prev, imageUrl: reader.result as string }));
+        const result = reader.result as string;
+        if (target === 'store') setFormData(prev => ({ ...prev, logoUrl: result }));
+        else if (target === 'edit-perfil') setEditProfileData(prev => ({ ...prev, logoUrl: result }));
+        else setProductFormData(prev => ({ ...prev, imageUrl: result }));
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const copyLink = (slug: string) => {
+    const url = `${window.location.origin}/#/cardapio?loja=${slug}`;
+    navigator.clipboard.writeText(url);
+    setCopiedId(slug);
+    setTimeout(() => setCopiedId(null), 2000);
   };
 
   const filteredStores = stores.filter(s => 
@@ -232,73 +294,125 @@ export default function SuperAdminPanel() {
              <ChevronLeft /> Voltar para Lojas
            </button>
 
-           <div className="bg-white rounded-[3rem] p-8 shadow-xl flex items-center justify-between border border-slate-100">
+           <div className="bg-white rounded-[3rem] p-8 shadow-xl flex flex-col md:flex-row md:items-center justify-between border border-slate-100 gap-6">
              <div className="flex items-center gap-6">
                <img src={editingStore.logoUrl} className="w-20 h-20 rounded-2xl object-cover border-4 border-slate-50" />
                <div>
                  <h1 className="text-3xl font-brand font-bold text-slate-800">{editingStore.name}</h1>
-                 <p className="text-sm font-bold text-slate-400">GERENCIAMENTO DE INVENTÁRIO</p>
+                 <p className="text-sm font-bold text-slate-400">GERENCIAMENTO DE LOJA</p>
                </div>
              </div>
-             <button onClick={() => setShowProductForm(true)} className="px-8 py-4 bg-primary text-white rounded-2xl font-bold shadow-lg flex items-center gap-2">
-               <Plus size={20} /> Adicionar Produto Manualmente
-             </button>
+             <div className="flex bg-slate-100 p-1.5 rounded-2xl">
+                <button onClick={() => setActiveSubTab('perfil')} className={`px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${activeSubTab === 'perfil' ? 'bg-white shadow-sm text-primary' : 'text-slate-400'}`}>DADOS DA LOJA</button>
+                <button onClick={() => setActiveSubTab('inventario')} className={`px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${activeSubTab === 'inventario' ? 'bg-white shadow-sm text-primary' : 'text-slate-400'}`}>INVENTÁRIO / PRODUTOS</button>
+             </div>
            </div>
 
-           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-             {/* Coluna Categorias */}
-             <div className="lg:col-span-4 bg-white rounded-[3rem] p-8 shadow-xl border border-slate-100 h-fit">
-               <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-                 <Layers className="text-secondary" /> Categorias
-               </h2>
-               <div className="flex gap-2 mb-6">
-                 <input 
-                   type="text" 
-                   value={newCatName} 
-                   onChange={e => setNewCatName(e.target.value)}
-                   placeholder="Nova categoria..."
-                   className="flex-1 px-4 py-3 bg-slate-50 rounded-xl outline-none font-medium border border-slate-100 focus:border-secondary transition-all"
-                 />
-                 <button onClick={handleAddCategory} className="p-3 bg-secondary text-primary rounded-xl font-bold">
-                   <Plus />
-                 </button>
-               </div>
-               <div className="space-y-2">
-                 {storeCategories.map(cat => (
-                   <div key={cat.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl group">
-                     <span className="font-bold text-slate-700">{cat.name}</span>
-                     <button onClick={() => handleDeleteCategory(cat.id)} className="p-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
-                       <Trash2 size={16} />
-                     </button>
-                   </div>
-                 ))}
-               </div>
-             </div>
-
-             {/* Coluna Produtos */}
-             <div className="lg:col-span-8 bg-white rounded-[3rem] p-8 shadow-xl border border-slate-100 min-h-[500px]">
-                <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-                  <Package className="text-secondary" /> Produtos da Loja
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {storeProducts.length === 0 ? (
-                    <div className="col-span-full py-20 text-center text-slate-300 italic">Nenhum produto cadastrado nesta loja.</div>
-                  ) : storeProducts.map(prod => (
-                    <div key={prod.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-4 group">
-                      <img src={prod.imageUrl} className="w-16 h-16 rounded-xl object-cover" />
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-slate-800 truncate">{prod.name}</h4>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{prod.category}</p>
-                        <p className="text-sm font-bold text-secondary">R$ {prod.price.toFixed(2)}</p>
-                      </div>
-                      <button onClick={() => handleDeleteProduct(prod.id)} className="p-3 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
-                        <Trash2 size={18} />
-                      </button>
+           {activeSubTab === 'perfil' ? (
+             <div className="bg-white rounded-[3rem] p-10 shadow-xl border border-slate-100 animate-scale-up">
+                <h2 className="text-xl font-bold text-slate-800 mb-8 flex items-center gap-2"><Settings className="text-secondary" /> Editar Perfil da Loja</h2>
+                <form onSubmit={handleUpdateProfile} className="space-y-6 max-w-2xl">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Nome da Loja</label>
+                            <input required type="text" value={editProfileData.name} onChange={e => setEditProfileData({...editProfileData, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold" />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Slug (URL)</label>
+                            <input required type="text" value={editProfileData.slug} onChange={e => setEditProfileData({...editProfileData, slug: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold" />
+                        </div>
                     </div>
-                  ))}
-                </div>
+                    
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Logotipo</label>
+                        <div className="flex items-center gap-6">
+                            <img src={editProfileData.logoUrl} className="w-24 h-24 rounded-2xl object-cover border-4 border-slate-100" />
+                            <button type="button" onClick={() => fileInputRef.current?.click()} className="px-6 py-3 bg-slate-100 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200 transition-all flex items-center gap-2">
+                                <Camera size={16} /> Alterar Imagem
+                            </button>
+                            <input type="file" ref={fileInputRef} onChange={e => handleFileChange(e, 'edit-perfil')} className="hidden" accept="image/*" />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">WhatsApp</label>
+                            <input type="text" value={editProfileData.whatsapp} onChange={e => setEditProfileData({...editProfileData, whatsapp: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold" />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Endereço</label>
+                            <input type="text" value={editProfileData.address} onChange={e => setEditProfileData({...editProfileData, address: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold" />
+                        </div>
+                    </div>
+
+                    <div className="pt-6">
+                        <button disabled={isSaving} type="submit" className="px-10 py-4 bg-primary text-white rounded-2xl font-bold shadow-xl flex items-center gap-2 hover:bg-black transition-all">
+                            {isSaving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />} Salvar Alterações
+                        </button>
+                    </div>
+                </form>
              </div>
-           </div>
+           ) : (
+             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-scale-up">
+               {/* Coluna Categorias */}
+               <div className="lg:col-span-4 bg-white rounded-[3rem] p-8 shadow-xl border border-slate-100 h-fit">
+                 <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                   <Layers className="text-secondary" /> Categorias
+                 </h2>
+                 <div className="flex gap-2 mb-6">
+                   <input 
+                     type="text" 
+                     value={newCatName} 
+                     onChange={e => setNewCatName(e.target.value)}
+                     placeholder="Nova categoria..."
+                     className="flex-1 px-4 py-3 bg-slate-50 rounded-xl outline-none font-medium border border-slate-100 focus:border-secondary transition-all"
+                   />
+                   <button onClick={handleAddCategory} className="p-3 bg-secondary text-primary rounded-xl font-bold">
+                     <Plus />
+                   </button>
+                 </div>
+                 <div className="space-y-2">
+                   {storeCategories.map(cat => (
+                     <div key={cat.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl group">
+                       <span className="font-bold text-slate-700">{cat.name}</span>
+                       <button onClick={() => handleDeleteCategory(cat.id)} className="p-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
+                         <Trash2 size={16} />
+                       </button>
+                     </div>
+                   ))}
+                 </div>
+               </div>
+
+               {/* Coluna Produtos */}
+               <div className="lg:col-span-8 bg-white rounded-[3rem] p-8 shadow-xl border border-slate-100 min-h-[500px]">
+                  <div className="flex items-center justify-between mb-8">
+                    <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                      <Package className="text-secondary" /> Produtos da Loja
+                    </h2>
+                    <button onClick={() => setShowProductForm(true)} className="px-5 py-2.5 bg-primary text-white rounded-xl font-bold text-xs flex items-center gap-2">
+                      <Plus size={16} /> Novo Produto
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {storeProducts.length === 0 ? (
+                      <div className="col-span-full py-20 text-center text-slate-300 italic">Nenhum produto cadastrado nesta loja.</div>
+                    ) : storeProducts.map(prod => (
+                      <div key={prod.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-4 group">
+                        <img src={prod.imageUrl} className="w-16 h-16 rounded-xl object-cover" />
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-bold text-slate-800 truncate">{prod.name}</h4>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{prod.category}</p>
+                          <p className="text-sm font-bold text-secondary">R$ {prod.price.toFixed(2)}</p>
+                        </div>
+                        <button onClick={() => handleDeleteProduct(prod.id)} className="p-3 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+               </div>
+             </div>
+           )}
         </div>
 
         {/* Modal Novo Produto Manual */}
@@ -349,7 +463,7 @@ export default function SuperAdminPanel() {
           <div className="p-2 bg-secondary rounded-xl text-primary">
             <ShieldCheck size={24} />
           </div>
-          <span className="font-brand font-bold text-xl tracking-tight">Master Control <span className="text-secondary font-sans text-[10px] uppercase ml-2 bg-white/10 px-2 py-0.5 rounded">v2.2</span></span>
+          <span className="font-brand font-bold text-xl tracking-tight">Master Control <span className="text-secondary font-sans text-[10px] uppercase ml-2 bg-white/10 px-2 py-0.5 rounded">v2.3</span></span>
         </div>
       </nav>
 
@@ -405,7 +519,7 @@ export default function SuperAdminPanel() {
 
                 <div className="grid grid-cols-2 gap-3 pt-4 border-t border-slate-100">
                   <button onClick={() => handleManageContent(store)} className="flex items-center justify-center gap-2 py-4 bg-slate-100 text-slate-700 rounded-2xl font-black text-[10px] uppercase hover:bg-slate-200 transition-all">
-                    <Edit2 size={14} /> Gerenciar Conteúdo
+                    <Edit2 size={14} /> Gerenciar Loja
                   </button>
                   <button 
                     onClick={() => toggleStoreStatus(store.id, store.isActive)}
@@ -413,9 +527,15 @@ export default function SuperAdminPanel() {
                   >
                     {store.isActive ? <Lock size={14} /> : <Unlock size={14} />} {store.isActive ? 'Bloquear' : 'Reativar'}
                   </button>
-                  <a href={`/?loja=${store.slug}`} target="_blank" className="flex items-center justify-center gap-2 py-4 bg-primary text-white rounded-2xl font-black text-[10px] uppercase col-span-2">
-                    <ArrowUpRight size={14} /> Visualizar Cardápio Público
+                  <a href={`/#/cardapio?loja=${store.slug}`} target="_blank" className="flex items-center justify-center gap-2 py-4 bg-primary text-white rounded-2xl font-black text-[10px] uppercase col-span-2">
+                    <ArrowUpRight size={14} /> Ver Cardápio Público
                   </a>
+                  <button 
+                    onClick={() => copyLink(store.slug)}
+                    className="flex items-center justify-center gap-2 py-3 bg-slate-50 text-slate-400 rounded-xl font-black text-[8px] uppercase col-span-2 mt-2"
+                  >
+                    {copiedId === store.slug ? <Check size={12} className="text-green-500" /> : <Copy size={12} />} {copiedId === store.slug ? 'Link Copiado' : 'Copiar Link do Cardápio'}
+                  </button>
                 </div>
               </div>
             ))}
