@@ -5,24 +5,17 @@ import { Order, Product, StoreSettings } from '../types';
 import { 
   TrendingUp, 
   ShoppingBag, 
-  DollarSign, 
   XCircle, 
-  Zap, 
-  Clock, 
   Printer, 
-  Utensils, 
+  Filter, 
+  ChevronDown, 
+  ChefHat, 
+  UserRound, 
+  Tv, 
+  Smartphone, 
+  Copy, 
+  Check, 
   ExternalLink,
-  Calendar,
-  Filter,
-  ChevronDown,
-  ChefHat,
-  UserRound,
-  Tv,
-  Smartphone,
-  QrCode,
-  Copy,
-  Check,
-  Share2,
   CalendarDays
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -48,22 +41,15 @@ const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
   const currentMonthValue = now.getMonth() + 1;
   const currentYearValue = now.getFullYear();
 
+  // Estados dos Filtros - Padrão: Mês Atual / Todos os dias
   const [filterMonth, setFilterMonth] = useState<number>(currentMonthValue);
-  const [filterDay, setFilterDay] = useState<number>(0); // 0 significa "Todos os dias"
+  const [filterDay, setFilterDay] = useState<number>(0); // 0 = Todos os dias
   const [filterYear, setFilterYear] = useState<number>(currentYearValue);
 
   const months = [
     "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
     "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
   ];
-
-  const years = useMemo(() => {
-    const startYear = 2024;
-    const endYear = now.getFullYear() + 1;
-    const list = [];
-    for (let i = startYear; i <= endYear; i++) list.push(i);
-    return list;
-  }, [now]);
 
   const filteredOrders = useMemo(() => {
     return orders.filter(order => {
@@ -120,10 +106,11 @@ const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
 
   return (
     <div className="space-y-8 pb-12 text-zinc-900 animate-fade-in">
+      {/* CABEÇALHO */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
            <h1 className="text-3xl font-brand font-bold text-gray-800">Painel de Gestão</h1>
-           <p className="text-gray-500 text-sm">Acompanhe seus resultados e filtre por período.</p>
+           <p className="text-gray-500 text-sm">Controle financeiro e operacional da unidade.</p>
         </div>
         <div className="flex flex-wrap gap-2 print:hidden">
           <button onClick={() => window.print()} className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-bold shadow-lg hover:opacity-90 transition-all active:scale-95 text-xs">
@@ -132,33 +119,33 @@ const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
         </div>
       </div>
 
-      {/* BARRA DE FILTROS */}
-      <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex flex-wrap items-center gap-4 print:hidden">
-        <div className="flex items-center gap-2 text-gray-400 mr-2">
-            <Filter size={18} />
-            <span className="text-[10px] font-black uppercase tracking-widest">Filtrar Período:</span>
+      {/* BARRA DE FILTROS - OTIMIZADA */}
+      <div className="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-100 flex flex-wrap items-center gap-6 print:hidden">
+        <div className="flex items-center gap-3 text-primary">
+            <Filter size={20} className="text-secondary" />
+            <span className="text-xs font-black uppercase tracking-widest">Filtros:</span>
         </div>
         
-        <div className="flex items-center gap-2">
-            <label className="text-[10px] font-bold text-gray-400 uppercase">Dia</label>
+        <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Dia</label>
             <select 
                 value={filterDay} 
                 onChange={(e) => setFilterDay(Number(e.target.value))}
-                className="bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-secondary/20"
+                className="bg-gray-50 border border-gray-100 rounded-xl px-4 py-2.5 text-xs font-bold outline-none focus:ring-2 focus:ring-secondary/20 min-w-[120px]"
             >
-                <option value={0}>Todos</option>
+                <option value={0}>Todos os dias</option>
                 {Array.from({ length: 31 }, (_, i) => (
-                    <option key={i + 1} value={i + 1}>{i + 1}</option>
+                    <option key={i + 1} value={i + 1}>Dia {i + 1}</option>
                 ))}
             </select>
         </div>
 
-        <div className="flex items-center gap-2">
-            <label className="text-[10px] font-bold text-gray-400 uppercase">Mês</label>
+        <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Mês</label>
             <select 
                 value={filterMonth} 
                 onChange={(e) => setFilterMonth(Number(e.target.value))}
-                className="bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-secondary/20"
+                className="bg-gray-50 border border-gray-100 rounded-xl px-4 py-2.5 text-xs font-bold outline-none focus:ring-2 focus:ring-secondary/20 min-w-[140px]"
             >
                 {months.map((m, i) => (
                     <option key={i + 1} value={i + 1}>{m}</option>
@@ -166,33 +153,48 @@ const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
             </select>
         </div>
 
-        <div className="flex items-center gap-2">
-            <label className="text-[10px] font-bold text-gray-400 uppercase">Ano</label>
+        <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Ano</label>
             <select 
                 value={filterYear} 
                 onChange={(e) => setFilterYear(Number(e.target.value))}
-                className="bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-secondary/20"
+                className="bg-gray-50 border border-gray-100 rounded-xl px-4 py-2.5 text-xs font-bold outline-none focus:ring-2 focus:ring-secondary/20"
             >
-                {years.map(y => (
-                    <option key={y} value={y}>{y}</option>
-                ))}
+                <option value={currentYearValue}>{currentYearValue}</option>
+                <option value={currentYearValue - 1}>{currentYearValue - 1}</option>
             </select>
         </div>
 
-        <div className="ml-auto text-[10px] font-black uppercase text-secondary bg-primary px-3 py-2 rounded-lg">
-            {filteredOrders.length} Pedidos Encontrados
+        <div className="ml-auto hidden md:flex items-center gap-4">
+            <div className="text-right">
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Resultados</p>
+                <p className="text-sm font-bold text-primary">{filteredOrders.length} Pedidos</p>
+            </div>
+            <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center text-orange-500">
+                <CalendarDays size={20} />
+            </div>
         </div>
       </div>
 
-      <div className="hidden print:block mb-8 border-b pb-4">
-          <h2 className="text-xl font-bold uppercase tracking-widest text-primary">Relatório de Desempenho</h2>
-          <p className="text-xs font-medium text-gray-500">
-            Período: {filterDay !== 0 ? `${filterDay} de ` : ''}{months[filterMonth - 1]} de {filterYear}
-          </p>
+      {/* CABEÇALHO DE IMPRESSÃO */}
+      <div className="hidden print:block mb-8 border-b-2 border-primary pb-6">
+          <div className="flex justify-between items-end">
+              <div>
+                <h2 className="text-2xl font-brand font-bold text-primary">{settings.storeName}</h2>
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-1">Relatório de Desempenho Administrativo</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs font-black text-primary uppercase">Período Selecionado:</p>
+                <p className="text-lg font-bold">
+                    {filterDay !== 0 ? `${filterDay} de ` : ''}{months[filterMonth - 1]} de {filterYear}
+                </p>
+              </div>
+          </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-8 space-y-8">
+            {/* CARDS DE ATALHO (SUMIR NA IMPRESSÃO) */}
             <section className="space-y-3 print:hidden">
                 <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">Painéis Operacionais</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -202,13 +204,15 @@ const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
                 </div>
             </section>
 
+            {/* KPIs */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                <StatCard icon={<TrendingUp className="text-green-500" />} label="Total Vendido" value={`R$ ${totalSales.toFixed(2)}`} color="bg-green-50" />
+                <StatCard icon={<TrendingUp className="text-green-500" />} label="Vendas Totais" value={`R$ ${totalSales.toFixed(2)}`} color="bg-green-50" />
                 <StatCard icon={<ShoppingBag className="text-blue-500" />} label="Pedidos Concluídos" value={totalOrdersCount.toString()} color="bg-blue-50" />
-                <StatCard icon={<XCircle className="text-red-500" />} label="Pedidos Cancelados" value={canceledOrdersCount.toString()} color="bg-red-50" />
+                <StatCard icon={<XCircle className="text-red-500" />} label="Cancelados" value={canceledOrdersCount.toString()} color="bg-red-50" />
             </div>
 
-            <section className="bg-white p-8 rounded-[3rem] shadow-sm border border-gray-100 print:shadow-none">
+            {/* GRÁFICO */}
+            <section className="bg-white p-8 rounded-[3rem] shadow-sm border border-gray-100 print:shadow-none print:border-gray-200">
                 <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
                     <TrendingUp className="text-secondary" /> Faturamento por Dia da Semana
                 </h2>
@@ -227,10 +231,12 @@ const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
+                <p className="text-[9px] text-gray-400 mt-4 text-center italic">Este gráfico reflete o faturamento acumulado nos dias da semana dentro do período selecionado.</p>
             </section>
         </div>
 
         <div className="lg:col-span-4 space-y-8">
+            {/* DIVULGAÇÃO (SUMIR NA IMPRESSÃO) */}
             <section className="bg-primary text-white p-8 rounded-[3rem] shadow-xl relative overflow-hidden print:hidden">
                 <div className="absolute -top-10 -right-10 w-32 h-32 bg-secondary opacity-20 rounded-full blur-3xl"></div>
                 <h2 className="text-xl font-brand font-bold mb-2 flex items-center gap-2">
@@ -257,10 +263,10 @@ const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
                         className="w-full flex items-center justify-between p-4 bg-white/10 hover:bg-white/20 rounded-2xl border border-white/10 transition-all group"
                     >
                         <div className="flex items-center gap-3">
-                            <Copy size={18} className="text-secondary" />
-                            <span className="text-xs font-bold">Copiar Link do App</span>
+                            {copied ? <Check size={18} className="text-green-400" /> : <Copy size={18} className="text-secondary" />}
+                            <span className="text-xs font-bold">{copied ? 'Copiado!' : 'Copiar Link do App'}</span>
                         </div>
-                        {copied ? <Check size={16} className="text-green-400" /> : <ChevronDown size={16} className="-rotate-90 opacity-20" />}
+                        {!copied && <ChevronDown size={16} className="-rotate-90 opacity-20" />}
                     </button>
                     <a 
                       href={`/#/cardapio${lojaParam}`} 
@@ -270,18 +276,19 @@ const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
                     >
                         <div className="flex items-center gap-3">
                             <ExternalLink size={18} />
-                            <span className="text-xs uppercase tracking-wider font-black">Abrir Menu em Nova Aba</span>
+                            <span className="text-xs uppercase tracking-wider font-black">Ver Cardápio Online</span>
                         </div>
                     </a>
                 </div>
             </section>
 
-            <section className="bg-white p-8 rounded-[3rem] shadow-sm border border-gray-100">
+            {/* MAIS VENDIDOS */}
+            <section className="bg-white p-8 rounded-[3rem] shadow-sm border border-gray-100 print:shadow-none print:border-gray-200">
                 <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                    <ShoppingBag className="text-secondary" /> Mais Vendidos do Período
+                    <ShoppingBag className="text-secondary" /> Mais Vendidos
                 </h2>
                 <div className="space-y-4">
-                    {salesByProduct.slice(0, 8).map((prod, idx) => (
+                    {salesByProduct.slice(0, 10).map((prod, idx) => (
                         <div key={idx} className="flex items-center gap-4 group">
                             <div className="w-10 h-10 rounded-2xl bg-gray-50 flex items-center justify-center font-black text-gray-400 border border-gray-100 group-hover:bg-orange-50 group-hover:text-orange-500 transition-colors">
                                 {idx + 1}
@@ -300,7 +307,7 @@ const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
                         </div>
                     ))}
                     {salesByProduct.length === 0 && (
-                        <p className="text-center py-10 text-gray-400 italic text-sm">Nenhuma venda registrada no período selecionado.</p>
+                        <p className="text-center py-10 text-gray-400 italic text-sm">Nenhuma venda registrada.</p>
                     )}
                 </div>
             </section>
@@ -311,8 +318,8 @@ const AdminDashboard: React.FC<Props> = ({ orders, products, settings }) => {
 };
 
 const StatCard = ({ icon, label, value, color }: any) => (
-    <div className={`${color} p-6 rounded-[2.5rem] flex items-center gap-5 border border-white/50 shadow-sm hover:shadow-lg transition-all print:border-gray-200 print:shadow-none`}>
-        <div className="p-4 bg-white rounded-3xl shadow-sm">{icon}</div>
+    <div className={`${color} p-6 rounded-[2.5rem] flex items-center gap-5 border border-white/50 shadow-sm hover:shadow-lg transition-all print:border-gray-200 print:shadow-none print:bg-transparent`}>
+        <div className="p-4 bg-white rounded-3xl shadow-sm border border-gray-50">{icon}</div>
         <div>
             <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest leading-none mb-1">{label}</p>
             <p className="text-xl font-black text-gray-800">{value}</p>
@@ -334,7 +341,7 @@ const generateChartData = (orders: Order[]) => {
         const day = new Date(o.createdAt).getDay();
         data[day].sales += Number(o.total) || 0;
     });
-    // Reorder to start from Monday
+    // Reordenar para começar da Segunda-feira
     return [...data.slice(1), data[0]];
 };
 
