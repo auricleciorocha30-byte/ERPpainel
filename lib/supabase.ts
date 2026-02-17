@@ -233,7 +233,6 @@ class NeonBridge {
     getSession: async () => ({ data: { session: null } }),
     signInWithPassword: async ({ email, password, store_id }: any) => {
       await ensureSchema();
-      // Added store_id check to ensure users login to the correct store
       let query = `SELECT * FROM waitstaff WHERE name = $1 AND password = $2`;
       let params = [email, password];
       
@@ -245,7 +244,18 @@ class NeonBridge {
       query += ` LIMIT 1`;
       
       const res = await sql(query, params);
-      if (res && res.length > 0) return { data: { user: { id: res[0].id, email: res[0].name } }, error: null };
+      if (res && res.length > 0) {
+        return { 
+          data: { 
+            user: { 
+              id: res[0].id, 
+              email: res[0].name,
+              role: res[0].role // Adicionado o cargo no retorno
+            } 
+          }, 
+          error: null 
+        };
+      }
       return { data: { user: null }, error: { message: 'Credenciais inválidas ou loja incorreta' } };
     },
     signOut: async () => ({ error: null }),

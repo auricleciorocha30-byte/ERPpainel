@@ -56,7 +56,6 @@ function StoreContext() {
   const location = useLocation();
   
   // Detecção robusta do slug
-  // Fix: Added missing useMemo import from 'react'
   const storeSlug = useMemo(() => {
     // 1. Tenta pegar do query param direto (HashRouter as vezes joga no final)
     const slug = searchParams.get('loja');
@@ -278,7 +277,16 @@ function StoreContext() {
 
   return (
     <Routes>
-      <Route path="/" element={!storeSlug ? <SuperAdminPanel /> : (adminUser ? <AdminLayout settings={settings} onLogout={() => setAdminUser(null)} /> : <Navigate to={`/login${lojaParam}`} />)}>
+      <Route path="/" element={
+        !storeSlug ? <SuperAdminPanel /> : (
+          adminUser ? (
+            // Apenas Gerente acessa o AdminDashboard. Garçom vai para o Atendimento.
+            adminUser.role === 'GERENTE' ? 
+              <AdminLayout settings={settings} onLogout={() => setAdminUser(null)} /> : 
+              <Navigate to={`/atendimento${lojaParam}`} />
+          ) : <Navigate to={`/login${lojaParam}`} />
+        )
+      }>
         <Route index element={<AdminDashboard orders={orders} products={products} settings={settings} />} />
         <Route path="cardapio-admin" element={<MenuManagement products={products} saveProduct={async (p) => { 
           await supabase.from('products').upsert([{ ...p, store_id: currentStore?.id }]);

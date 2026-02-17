@@ -98,8 +98,8 @@ export default function LoginPage({ onLoginSuccess }: Props) {
       if (authData.user) {
         onLoginSuccess({
           id: authData.user.id,
-          name: authData.user.email || 'Administrador',
-          role: 'GERENTE'
+          name: authData.user.email || 'Usuário',
+          role: authData.user.role // Utiliza o cargo real retornado do banco
         });
       }
     } catch (err: any) {
