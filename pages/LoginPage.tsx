@@ -76,7 +76,6 @@ export default function LoginPage({ onLoginSuccess }: Props) {
     setError(null);
 
     try {
-      // Capturar o store_id atual para restringir o login à unidade correta
       const storeSlug = searchParams.get('loja');
       let currentStoreId = null;
       
@@ -96,11 +95,14 @@ export default function LoginPage({ onLoginSuccess }: Props) {
       }
 
       if (authData.user) {
-        onLoginSuccess({
+        const userData = {
           id: authData.user.id,
           name: authData.user.email || 'Usuário',
-          role: authData.user.role // Utiliza o cargo real retornado do banco
-        });
+          role: authData.user.role
+        };
+        
+        // Chamada para o App.tsx salvar a sessão
+        onLoginSuccess(userData);
       }
     } catch (err: any) {
       setError(err.message || 'Erro ao realizar login');
@@ -148,7 +150,6 @@ export default function LoginPage({ onLoginSuccess }: Props) {
 
           {view === 'hub' ? (
             <div className="space-y-6">
-              {/* Botão de Instalação Dinâmico */}
               {isInstallable && (
                 <button 
                   onClick={handleInstallClick}
@@ -297,15 +298,6 @@ export default function LoginPage({ onLoginSuccess }: Props) {
 
         </div>
       </div>
-      
-      <style>{`
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          25% { transform: translateX(-5px); }
-          75% { transform: translateX(5px); }
-        }
-        .animate-shake { animation: shake 0.3s ease-in-out; }
-      `}</style>
     </div>
   );
 }

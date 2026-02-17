@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams, Navigate } from 'react-router-dom';
 import { 
   Hash, 
   UserRound, 
@@ -22,20 +22,17 @@ import { Order, OrderStatus, Waitstaff, StoreSettings } from '../types';
 import { supabase } from '../lib/supabase';
 
 interface Props {
+  adminUser: Waitstaff | null;
   onSelectTable: (table: string | null) => void;
   orders: Order[];
   settings: StoreSettings;
   updateStatus: (id: string, status: OrderStatus) => Promise<void>;
+  onLogout: () => void;
 }
 
-const AttendantPanel: React.FC<Props> = ({ onSelectTable, orders, settings, updateStatus }) => {
+const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, settings, updateStatus, onLogout }) => {
   const navigate = useNavigate();
-  const [activeWaitstaff, setActiveWaitstaff] = useState<Waitstaff | null>(null);
-  const [showLogin, setShowLogin] = useState(false);
-  const [loginName, setLoginName] = useState('');
-  const [loginPass, setLoginPass] = useState('');
-  const [loginError, setLoginError] = useState('');
-  const [isLogingIn, setIsLogingIn] = useState(false);
+  const [searchParams] = useSearchParams();
   const [selectedTableModal, setSelectedTableModal] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'MAPA' | 'PEDIDOS'>('MAPA');
   const [printOrder, setPrintOrder] = useState<any | null>(null);
@@ -43,50 +40,15 @@ const AttendantPanel: React.FC<Props> = ({ onSelectTable, orders, settings, upda
   
   const tables = Array.from({ length: 12 }, (_, i) => (i + 1).toString());
 
-  useEffect(() => {
-    const saved = localStorage.getItem('vovo-guta-waitstaff');
-    if (saved) {
-      setActiveWaitstaff(JSON.parse(saved));
-    } else {
-      setShowLogin(true);
-    }
-  }, []);
+  // Se não houver usuário logado, redireciona para o login da loja atual
+  if (!adminUser) {
+    const storeSlug = searchParams.get('loja');
+    return <Navigate to={`/login${storeSlug ? `?loja=${storeSlug}` : ''}`} />;
+  }
 
-  const isGerente = useMemo(() => activeWaitstaff?.role === 'GERENTE', [activeWaitstaff]);
-  
+  const isGerente = useMemo(() => adminUser?.role === 'GERENTE', [adminUser]);
   const canFinish = useMemo(() => isGerente || settings.canWaitstaffFinishOrder, [isGerente, settings.canWaitstaffFinishOrder]);
   const canCancel = useMemo(() => isGerente || settings.canWaitstaffCancelItems, [isGerente, settings.canWaitstaffCancelItems]);
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginError('');
-    setIsLogingIn(true);
-    try {
-      const { data, error } = await supabase.from('waitstaff')
-        .select('*')
-        .eq('name', loginName)
-        .eq('password', loginPass)
-        .maybeSingle();
-
-      if (data) {
-        setActiveWaitstaff(data);
-        localStorage.setItem('vovo-guta-waitstaff', JSON.stringify(data));
-        setShowLogin(false);
-      } else {
-        setLoginError('Acesso negado.');
-      }
-    } catch (err) {
-      setLoginError('Erro de conexão.');
-    } finally {
-      setIsLogingIn(false);
-    }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('vovo-guta-waitstaff');
-    setActiveWaitstaff(null);
-    setShowLogin(true);
-  };
 
   const activeOrders = useMemo(() => orders.filter(o => o.status === 'PREPARANDO' || o.status === 'PRONTO'), [orders]);
 
@@ -111,20 +73,21 @@ const AttendantPanel: React.FC<Props> = ({ onSelectTable, orders, settings, upda
       setSelectedTableModal(tableNum);
     } else {
       onSelectTable(tableNum);
-      navigate('/cardapio');
+      const storeSlug = searchParams.get('loja');
+      navigate(`/cardapio${storeSlug ? `?loja=${storeSlug}` : ''}`);
     }
   };
 
   const handleQuickOrder = (type: string) => { 
     onSelectTable(null); 
-    navigate(`/cardapio?tipo=${type}`); 
+    const storeSlug = searchParams.get('loja');
+    navigate(`/cardapio?tipo=${type}${storeSlug ? `&loja=${storeSlug}` : ''}`); 
   };
 
   const handlePrintConferencia = (tableNum: string) => {
     const tableOrders = activeOrders.filter(o => o.tableNumber === tableNum);
     const combinedItems: any[] = [];
     
-    // Agrupar itens repetidos para a conferência
     tableOrders.forEach(order => {
       order.items.forEach(item => {
         const existing = combinedItems.find(i => i.productId === item.productId);
@@ -209,7 +172,7 @@ const AttendantPanel: React.FC<Props> = ({ onSelectTable, orders, settings, upda
             <div>
               <h1 className="text-3xl font-brand font-bold">Painel Atendente</h1>
               <p className="text-secondary text-sm font-medium flex items-center gap-2">
-                <Clock size={14} /> {activeWaitstaff?.name || 'Aguardando Login'} ({activeWaitstaff?.role})
+                <Clock size={14} /> {adminUser?.name} ({adminUser?.role})
               </p>
             </div>
           </div>
@@ -220,7 +183,7 @@ const AttendantPanel: React.FC<Props> = ({ onSelectTable, orders, settings, upda
             <button onClick={() => handleQuickOrder('ENTREGA')} className="flex items-center gap-2 px-4 py-3 bg-white/10 rounded-2xl hover:bg-white/20 font-bold text-xs">
               <Truck size={18} /> Entrega
             </button>
-            <button onClick={handleLogout} className="p-3 bg-red-500/10 text-red-400 rounded-2xl hover:bg-red-500 hover:text-white transition-all">
+            <button onClick={onLogout} className="p-3 bg-red-500/10 text-red-400 rounded-2xl hover:bg-red-500 hover:text-white transition-all">
               <LogOut size={24} />
             </button>
           </div>
@@ -361,7 +324,11 @@ const AttendantPanel: React.FC<Props> = ({ onSelectTable, orders, settings, upda
             </div>
             <div className="p-8 space-y-3">
               <button 
-                onClick={() => { onSelectTable(selectedTableModal); navigate('/cardapio'); }} 
+                onClick={() => { 
+                  onSelectTable(selectedTableModal); 
+                  const storeSlug = searchParams.get('loja');
+                  navigate(`/cardapio${storeSlug ? `?loja=${storeSlug}` : ''}`); 
+                }} 
                 className="w-full flex items-center gap-4 p-5 bg-orange-50 rounded-2xl border border-orange-100 font-black text-[11px] uppercase tracking-wider text-orange-900 hover:bg-orange-100 transition-all active:scale-95"
               >
                 <PlusCircle className="text-orange-500" size={20} /> Adicionar Item
@@ -429,7 +396,7 @@ const AttendantPanel: React.FC<Props> = ({ onSelectTable, orders, settings, upda
               <p style={{ fontWeight: 'bold', fontSize: '10pt', textAlign: 'center', marginBottom: '2mm' }}>
                 {printOrder.tableNumber ? `MESA: ${printOrder.tableNumber}` : `PEDIDO: #${printOrder.id?.slice(-4)}`}
               </p>
-              <p style={{ fontSize: '9pt' }}>ATENDENTE: {activeWaitstaff?.name.toUpperCase() || 'SISTEMA'}</p>
+              <p style={{ fontSize: '9pt' }}>ATENDENTE: {adminUser?.name.toUpperCase() || 'SISTEMA'}</p>
               <p style={{ fontSize: '9pt' }}>CLIENTE: {printOrder.customerName?.toUpperCase() || 'BALCÃO'}</p>
               {printOrder.customerPhone && <p style={{ fontSize: '9pt' }}>TEL: {printOrder.customerPhone}</p>}
               
@@ -483,52 +450,6 @@ const AttendantPanel: React.FC<Props> = ({ onSelectTable, orders, settings, upda
               <p style={{ fontSize: '8pt' }}>OBRIGADO PELA PREFERÊNCIA!</p>
               <p style={{ fontSize: '6pt' }}>SISTEMA G & C CONVENIÊNCIA</p>
               {printOrder.isConferencia && <p style={{ fontSize: '7pt', fontWeight: 'bold', marginTop: '2mm' }}>ESTE DOCUMENTO NÃO É UM CUPOM FISCAL</p>}
-          </div>
-        </div>
-      )}
-
-      {showLogin && (
-        <div className="fixed inset-0 z-[120] bg-primary flex items-center justify-center p-4">
-          <div className="bg-white w-full max-sm rounded-[3rem] p-10 shadow-2xl space-y-8 animate-scale-up">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-orange-500 text-white rounded-2xl flex items-center justify-center mx-auto mb-4 rotate-3 shadow-lg shadow-orange-900/20">
-                <UserRound size={32} />
-              </div>
-              <h1 className="text-2xl font-brand font-bold text-primary">Acesso Atendente</h1>
-              <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-2">Identifique-se para continuar</p>
-            </div>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Usuário</label>
-                <input 
-                    type="text" 
-                    placeholder="Seu nome" 
-                    value={loginName} 
-                    onChange={e => setLoginName(e.target.value)} 
-                    className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-secondary/20 transition-all font-bold" 
-                    required 
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Senha</label>
-                <input 
-                    type="password" 
-                    placeholder="••••" 
-                    value={loginPass} 
-                    onChange={e => setLoginPass(e.target.value)} 
-                    className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-secondary/20 transition-all font-bold" 
-                    required 
-                />
-              </div>
-              {loginError && <p className="text-xs text-red-500 font-black text-center animate-shake">{loginError}</p>}
-              <button 
-                disabled={isLogingIn} 
-                type="submit" 
-                className="w-full py-5 bg-primary text-white rounded-2xl font-bold shadow-xl shadow-black/20 flex items-center justify-center gap-2 active:scale-95 transition-all text-sm uppercase tracking-widest"
-              >
-                {isLogingIn ? <Loader2 className="animate-spin" size={20}/> : 'Entrar no Sistema'}
-              </button>
-            </form>
           </div>
         </div>
       )}

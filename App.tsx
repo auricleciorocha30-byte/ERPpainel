@@ -43,6 +43,8 @@ const SOUNDS = {
   ORDER_READY: 'https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3'
 };
 
+const SESSION_KEY = 'gc-conveniencia-session-v1';
+
 export default function App() {
   return (
     <HashRouter>
@@ -57,22 +59,16 @@ function StoreContext() {
   
   // Detecção robusta do slug
   const storeSlug = useMemo(() => {
-    // 1. Tenta pegar do query param direto (HashRouter as vezes joga no final)
     const slug = searchParams.get('loja');
     if (slug) return slug;
-
-    // 2. Tenta pegar manualmente da URL caso o useSearchParams falhe no HashRouter
     const urlParams = new URLSearchParams(window.location.search);
     const mainSlug = urlParams.get('loja');
     if (mainSlug) return mainSlug;
-
-    // 3. Tenta pegar da parte interna do hash
     const hashPart = window.location.hash.split('?')[1];
     if (hashPart) {
         const hashParams = new URLSearchParams(hashPart);
         return hashParams.get('loja');
     }
-
     return null;
   }, [searchParams, location]);
   
@@ -84,12 +80,25 @@ function StoreContext() {
   const [settings, setSettings] = useState<StoreSettings>(INITIAL_SETTINGS);
   const [categories, setCategories] = useState<string[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [adminUser, setAdminUser] = useState<Waitstaff | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [activeTable, setActiveTable] = useState<string | null>(null);
+  
+  // Inicialização de usuário com persistência
+  const [adminUser, setAdminUser] = useState<Waitstaff | null>(() => {
+    const saved = localStorage.getItem(SESSION_KEY);
+    return saved ? JSON.parse(saved) : null;
+  });
 
+  const [activeTable, setActiveTable] = useState<string | null>(null);
   const initialLoadRef = useRef(true);
   const ordersRef = useRef<Order[]>([]);
+
+  const handleSetUser = (user: Waitstaff | null) => {
+    if (user) {
+      localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(SESSION_KEY);
+    }
+    setAdminUser(user);
+  };
 
   const playAudio = (url: string) => {
     const audio = new Audio(url);
@@ -280,9 +289,8 @@ function StoreContext() {
       <Route path="/" element={
         !storeSlug ? <SuperAdminPanel /> : (
           adminUser ? (
-            // Apenas Gerente acessa o AdminDashboard. Garçom vai para o Atendimento.
             adminUser.role === 'GERENTE' ? 
-              <AdminLayout settings={settings} onLogout={() => setAdminUser(null)} /> : 
+              <AdminLayout settings={settings} onLogout={() => handleSetUser(null)} /> : 
               <Navigate to={`/atendimento${lojaParam}`} />
           ) : <Navigate to={`/login${lojaParam}`} />
         )
@@ -299,10 +307,10 @@ function StoreContext() {
       </Route>
 
       <Route path="/master" element={<SuperAdminPanel />} />
-      <Route path="/login" element={adminUser ? <Navigate to={`/${lojaParam}`} /> : <LoginPage onLoginSuccess={setAdminUser} />} />
-      <Route path="/atendimento" element={<AttendantPanel orders={orders} settings={settings} onSelectTable={setActiveTable} updateStatus={updateOrderStatus} />} />
+      <Route path="/login" element={adminUser ? (adminUser.role === 'GERENTE' ? <Navigate to={`/${lojaParam}`} /> : <Navigate to={`/atendimento${lojaParam}`} />) : <LoginPage onLoginSuccess={handleSetUser} />} />
+      <Route path="/atendimento" element={<AttendantPanel adminUser={adminUser} orders={orders} settings={settings} onSelectTable={setActiveTable} updateStatus={updateOrderStatus} onLogout={() => handleSetUser(null)} />} />
       <Route path="/cozinha" element={<KitchenBoard orders={orders} updateStatus={updateOrderStatus} />} />
-      <Route path="/cardapio" element={<DigitalMenu products={products} categories={categories} settings={settings} orders={orders} addOrder={addOrder} tableNumber={activeTable} onLogout={() => setActiveTable(null)} isWaitstaff={!!localStorage.getItem('vovo-guta-waitstaff')} />} />
+      <Route path="/cardapio" element={<DigitalMenu products={products} categories={categories} settings={settings} orders={orders} addOrder={addOrder} tableNumber={activeTable} onLogout={() => setActiveTable(null)} isWaitstaff={!!adminUser} />} />
       <Route path="/tv" element={<TVBoard orders={orders} settings={settings} products={products} />} />
       <Route path="*" element={<Navigate to={storeSlug ? `/cardapio${lojaParam}` : "/"} />} />
     </Routes>
