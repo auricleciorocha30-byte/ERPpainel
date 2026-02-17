@@ -17,6 +17,7 @@ export interface StoreProfile {
 
 export interface Waitstaff {
   id: string;
+  store_id?: string;
   name: string;
   password?: string;
   role: 'GERENTE' | 'GARCOM';

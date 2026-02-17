@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { StoreSettings, Waitstaff } from '../types';
+import { StoreSettings, Waitstaff, StoreProfile } from '../types';
 import { Switch } from '../components/Switch';
 import { 
   ShieldCheck, 
@@ -18,11 +18,12 @@ import {
 import { supabase } from '../lib/supabase';
 
 interface Props {
+  currentStore: StoreProfile;
   settings: StoreSettings;
   onUpdateSettings: (s: StoreSettings) => void;
 }
 
-const WaitstaffManagement: React.FC<Props> = ({ settings, onUpdateSettings }) => {
+const WaitstaffManagement: React.FC<Props> = ({ currentStore, settings, onUpdateSettings }) => {
   const [staff, setStaff] = useState<Waitstaff[]>([]);
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState('');
@@ -32,10 +33,17 @@ const WaitstaffManagement: React.FC<Props> = ({ settings, onUpdateSettings }) =>
 
   useEffect(() => {
     fetchStaff();
-  }, []);
+  }, [currentStore.id]);
 
   const fetchStaff = async () => {
-    const { data } = await supabase.from('waitstaff').select('*').order('role').order('name');
+    setLoading(true);
+    const { data } = await supabase
+      .from('waitstaff')
+      .select('*')
+      .eq('store_id', currentStore.id)
+      .order('role')
+      .order('name');
+    
     if (data) setStaff(data as Waitstaff[]);
     setLoading(false);
   };
@@ -50,6 +58,7 @@ const WaitstaffManagement: React.FC<Props> = ({ settings, onUpdateSettings }) =>
     setIsSaving(true);
     try {
       const { error } = await supabase.from('waitstaff').insert([{ 
+        store_id: currentStore.id,
         name: newName, 
         password: newPass,
         role: newRole 
@@ -60,7 +69,7 @@ const WaitstaffManagement: React.FC<Props> = ({ settings, onUpdateSettings }) =>
       setNewRole('GARCOM');
       fetchStaff();
     } catch (err: any) {
-      alert(err.message);
+      alert("Erro ao adicionar colaborador: " + err.message);
     } finally {
       setIsSaving(false);
     }
@@ -68,7 +77,6 @@ const WaitstaffManagement: React.FC<Props> = ({ settings, onUpdateSettings }) =>
 
   const handleDeleteStaff = async (id: string) => {
     if (!window.confirm("Remover este membro da equipe?")) return;
-    // Fix: Swap .delete() and .eq() to match NeonBridge mock chaining logic
     await supabase.from('waitstaff').eq('id', id).delete();
     fetchStaff();
   };
@@ -161,7 +169,8 @@ const WaitstaffManagement: React.FC<Props> = ({ settings, onUpdateSettings }) =>
 
           <div className="space-y-3">
             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">Equipe Atual</h3>
-            {loading ? <Loader2 className="animate-spin text-gray-200 mx-auto" /> : 
+            {loading ? <div className="py-10 flex justify-center"><Loader2 className="animate-spin text-gray-200" /></div> : 
+              staff.length === 0 ? <p className="text-center py-10 text-gray-300 italic text-sm">Nenhum membro cadastrado.</p> :
               staff.map(member => (
                 <div key={member.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
                   <div className="flex items-center gap-3">

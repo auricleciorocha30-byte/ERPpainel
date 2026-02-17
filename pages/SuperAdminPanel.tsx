@@ -248,8 +248,9 @@ export default function SuperAdminPanel() {
       role: newUserFormData.role
     }]);
 
-    if (error) alert("Erro ao criar usuário");
-    else {
+    if (error) {
+      alert("Erro ao criar usuário: " + (error.message || "Verifique os dados."));
+    } else {
       setNewUserFormData({ name: '', password: '', role: 'GARCOM' });
       fetchStoreData(editingStore.id);
     }

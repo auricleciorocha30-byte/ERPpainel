@@ -294,7 +294,7 @@ function StoreContext() {
           await supabase.from('products').eq('id', id).delete();
         }} categories={categories} setCategories={setCategories} />} />
         <Route path="pedidos" element={<OrdersList orders={orders} updateStatus={updateOrderStatus} products={products} addOrder={addOrder} settings={settings} />} />
-        <Route path="equipe" element={<WaitstaffManagement settings={settings} onUpdateSettings={handleUpdateSettings} />} />
+        <Route path="equipe" element={<WaitstaffManagement currentStore={currentStore!} settings={settings} onUpdateSettings={handleUpdateSettings} />} />
         <Route path="configuracoes" element={<StoreSettingsPage settings={settings} products={products} onSave={handleUpdateSettings} />} />
       </Route>
 

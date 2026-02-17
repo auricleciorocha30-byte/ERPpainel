@@ -165,7 +165,8 @@ class NeonBridge {
         const columns = keys.map(k => `${k.toLowerCase()}`).join(', ');
         const queryStr = `INSERT INTO ${this.tableName} (${columns}) VALUES (${placeholders}) RETURNING *`;
         const res = await sql(queryStr, Object.values(val));
-        results.push(res[0]);
+        if (res && res.length > 0) results.push(res[0]);
+        else results.push(val); // Fallback caso o RETURNING * falhe no mock
       }
       return { data: results, error: null };
     } catch (err: any) {
@@ -250,7 +251,7 @@ class NeonBridge {
             user: { 
               id: res[0].id, 
               email: res[0].name,
-              role: res[0].role // Adicionado o cargo no retorno
+              role: res[0].role
             } 
           }, 
           error: null 
