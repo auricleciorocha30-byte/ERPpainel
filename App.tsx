@@ -298,8 +298,6 @@ function StoreContext() {
                Voltar ao Início
              </button>
            )}
-           
-           <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">G & C CONVENIÊNCIA SYSTEM</p>
         </div>
       </div>
     );
