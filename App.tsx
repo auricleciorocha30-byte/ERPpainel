@@ -19,7 +19,9 @@ import {
   WifiOff,
   RefreshCw,
   Bell,
-  ShieldAlert
+  ShieldAlert,
+  MessageCircle,
+  AlertTriangle
 } from 'lucide-react';
 import { supabase } from './lib/supabase.ts';
 import { Product, Order, StoreSettings, Waitstaff, OrderStatus, StoreProfile } from './types.ts';
@@ -73,7 +75,7 @@ function StoreContext() {
   
   const [currentStore, setCurrentStore] = useState<StoreProfile | null>(null);
   const [loadingStore, setLoadingStore] = useState(!!storeSlug);
-  const [storeError, setStoreError] = useState<string | null>(null);
+  const [storeError, setStoreError] = useState<{message: string, isSuspended: boolean} | null>(null);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [settings, setSettings] = useState<StoreSettings>(INITIAL_SETTINGS);
@@ -131,9 +133,9 @@ function StoreContext() {
       if (error) throw error;
       
       if (!data) {
-        setStoreError('Loja não encontrada.');
+        setStoreError({message: 'Loja não encontrada.', isSuspended: false});
       } else if (!data.isActive && data.isactive !== true) {
-        setStoreError('Esta conta está temporariamente suspensa.');
+        setStoreError({message: 'Esta conta está temporariamente suspensa por questões administrativas.', isSuspended: true});
       } else {
         const storeData = data as any;
         const settingsRaw = storeData.settings;
@@ -148,7 +150,7 @@ function StoreContext() {
         applyColors(parsedSettings);
       }
     } catch (err) {
-      setStoreError('Erro ao carregar loja.');
+      setStoreError({message: 'Erro ao carregar os dados da unidade.', isSuspended: false});
     } finally {
       setLoadingStore(false);
     }
@@ -271,10 +273,33 @@ function StoreContext() {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-center">
         <div className="bg-white p-10 rounded-[3rem] shadow-2xl max-w-sm space-y-6">
-           <ShieldAlert size={64} className="mx-auto text-red-500" />
-           <h1 className="text-2xl font-brand font-bold text-slate-800">Acesso Restrito</h1>
-           <p className="text-slate-400 font-medium leading-relaxed">{storeError}</p>
-           <button onClick={() => window.location.href = window.location.origin} className="w-full py-4 bg-primary text-white rounded-2xl font-bold">Voltar ao Início</button>
+           <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto">
+             {storeError.isSuspended ? <AlertTriangle size={48} className="text-red-500" /> : <ShieldAlert size={48} className="text-red-500" />}
+           </div>
+           <h1 className="text-2xl font-brand font-bold text-slate-800">
+             {storeError.isSuspended ? 'Conta Suspensa' : 'Acesso Restrito'}
+           </h1>
+           <p className="text-slate-400 font-medium leading-relaxed">{storeError.message}</p>
+           
+           {storeError.isSuspended ? (
+             <a 
+              href="https://wa.me/5585987582159" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="w-full py-4 bg-green-500 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-green-600 transition-colors"
+             >
+               <MessageCircle size={20} /> Falar com o Suporte
+             </a>
+           ) : (
+             <button 
+               onClick={() => window.location.href = window.location.origin} 
+               className="w-full py-4 bg-primary text-white rounded-2xl font-bold hover:bg-black transition-colors"
+             >
+               Voltar ao Início
+             </button>
+           )}
+           
+           <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">G & C CONVENIÊNCIA SYSTEM</p>
         </div>
       </div>
     );
