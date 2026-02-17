@@ -192,15 +192,15 @@ const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, set
         <div className="flex bg-white/5 p-1.5 rounded-[2rem] border border-white/10">
           <button 
             onClick={() => setActiveTab('MAPA')} 
-            className={`flex-1 py-4 rounded-[1.5rem] font-bold text-xs tracking-widest transition-all ${activeTab === 'MAPA' ? 'bg-secondary text-white shadow-lg' : 'text-white/40 hover:text-white/60'}`}
+            className={`flex-1 py-4 rounded-[1.5rem] font-black text-[10px] uppercase tracking-[0.2em] transition-all ${activeTab === 'MAPA' ? 'bg-secondary text-white shadow-lg' : 'text-white/30 hover:text-white/60'}`}
           >
-            MAPA DE MESAS
+            Mapa de Mesas
           </button>
           <button 
             onClick={() => setActiveTab('PEDIDOS')} 
-            className={`flex-1 py-4 rounded-[1.5rem] font-bold text-xs tracking-widest transition-all ${activeTab === 'PEDIDOS' ? 'bg-secondary text-white shadow-lg' : 'text-white/40 hover:text-white/60'}`}
+            className={`flex-1 py-4 rounded-[1.5rem] font-black text-[10px] uppercase tracking-[0.2em] transition-all ${activeTab === 'PEDIDOS' ? 'bg-secondary text-white shadow-lg' : 'text-white/30 hover:text-white/60'}`}
           >
-            PEDIDOS ATIVOS
+            Pedidos Ativos
           </button>
         </div>
 

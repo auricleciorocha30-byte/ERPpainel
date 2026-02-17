@@ -34,9 +34,9 @@ import {
   CreditCard,
   Banknote,
   DollarSign,
-  // Added missing Hash and UserRound imports
   Hash,
-  UserRound
+  UserRound,
+  ArrowLeft
 } from 'lucide-react';
 import { Product, StoreSettings, Order, OrderItem, OrderType, PaymentMethod, Waitstaff } from '../types';
 
@@ -57,6 +57,7 @@ const DigitalMenu: React.FC<Props> = ({ products, categories: externalCategories
   const navigate = useNavigate();
   const urlTable = searchParams.get('mesa');
   const urlType = searchParams.get('tipo');
+  const storeSlug = searchParams.get('loja');
   
   const [cart, setCart] = useState<OrderItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -132,10 +133,14 @@ const DigitalMenu: React.FC<Props> = ({ products, categories: externalCategories
       onCloseMenu();
       return;
     }
+    
+    // Se for atendente, força a volta para o painel de mesas garantindo o slug
     if (isWaitstaff) {
-      navigate(-1);
+      const lojaParam = storeSlug ? `?loja=${storeSlug}` : '';
+      navigate(`/atendimento${lojaParam}`);
       return;
     }
+
     setHasSelectedMode(false);
   };
 
@@ -245,7 +250,7 @@ const DigitalMenu: React.FC<Props> = ({ products, categories: externalCategories
   const handleCheckout = async () => {
     if (cart.length === 0) return;
     if (orderType === 'MESA' && !manualTable) { alert('Informe o número da mesa.'); return; }
-    if (orderType === 'BALCAO' && !customerName) { alert('Informe o seu nome.'); return; }
+    if (orderType === 'BALCAO' && !customerName && !isWaitstaff) { alert('Informe o seu nome.'); return; }
     if (orderType === 'ENTREGA' && (!customerName || !customerPhone || !deliveryAddress)) { alert('Preencha os dados de entrega.'); return; }
 
     setIsSending(true);
@@ -262,7 +267,7 @@ const DigitalMenu: React.FC<Props> = ({ products, categories: externalCategories
       changeFor: orderChangeFor,
       notes: notes.trim() || undefined, 
       tableNumber: orderType === 'MESA' ? manualTable : undefined,
-      customerName: customerName.trim() || undefined, 
+      customerName: customerName.trim() || (isWaitstaff ? `Atend: ${activeWaitstaff?.name}` : undefined), 
       customerPhone: customerPhone.trim() || undefined,
       deliveryAddress: orderType === 'ENTREGA' ? deliveryAddress.trim() : undefined,
       waitstaffName: activeWaitstaff?.name || undefined,
@@ -350,7 +355,9 @@ const DigitalMenu: React.FC<Props> = ({ products, categories: externalCategories
       <header className={`sticky top-0 z-30 shadow-md ${isWaitstaff ? 'bg-secondary' : 'bg-primary'} text-white p-3 md:p-4 transition-all w-full`}>
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2 min-w-0">
-            <button onClick={handleBack} className="p-2 hover:bg-white/10 rounded-full shrink-0"><ChevronLeft size={22} /></button>
+            <button onClick={handleBack} className="p-2 hover:bg-white/10 rounded-full shrink-0">
+              {isWaitstaff ? <ArrowLeft size={22} /> : <ChevronLeft size={22} />}
+            </button>
             <div className="flex flex-col min-w-0">
                 <h1 className="font-brand text-sm md:text-base font-bold leading-none truncate">{settings.storeName}</h1>
                 <span className="text-[9px] uppercase font-black opacity-70 truncate mt-0.5">{orderType} {orderType === 'MESA' && manualTable ? `• Mesa ${manualTable}` : ''}</span>
@@ -591,7 +598,19 @@ const DigitalMenu: React.FC<Props> = ({ products, categories: externalCategories
                         <div className="flex justify-between items-center"><span className="text-[10px] font-black text-gray-400 uppercase">Senha do Pedido</span><span className="text-xl font-black text-primary">#{Math.floor(1000 + Math.random() * 9000)}</span></div>
                         <p className="text-[10px] text-gray-400 leading-snug">Fique atento ao painel da loja ou aguarde nosso atendente chamar.</p>
                      </div>
-                     <button onClick={() => { setIsCartOpen(false); setCheckoutStep('cart'); }} className="w-full py-5 bg-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl">Fazer Outro Pedido</button>
+                     
+                     <div className="flex flex-col gap-3">
+                        <button onClick={() => { setIsCartOpen(false); setCheckoutStep('cart'); }} className="w-full py-5 bg-gray-100 text-gray-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-gray-200 transition-all">Lançar outro item na sacola</button>
+                        
+                        {isWaitstaff && (
+                           <button 
+                             onClick={handleBack} 
+                             className="w-full py-5 bg-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl flex items-center justify-center gap-2"
+                           >
+                             <ArrowLeft size={16} /> Concluir e Voltar ao Mapa
+                           </button>
+                        )}
+                     </div>
                   </div>
                 )}
              </div>
@@ -616,10 +635,22 @@ const DigitalMenu: React.FC<Props> = ({ products, categories: externalCategories
                     <div className="min-w-0">
                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Localização</p>
                        <p className="text-sm font-bold text-gray-700 leading-snug">{settings.address}</p>
-                       <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(settings.address)}`} target="_blank" className="text-[10px] font-black text-secondary flex items-center gap-1 mt-1">VER NO MAPA <Navigation size={10} /></a>
+                       <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(settings.address)}`} target="_blank" className="text-[10px] font-black text-secondary flex items-center gap-1 mt-1 uppercase">VER NO MAPA <Navigation size={10} /></a>
                     </div>
                  </div>
                )}
+
+               {settings.whatsapp && (
+                 <div className="flex items-start gap-4 p-2 border-t border-gray-100 pt-4">
+                    <div className="p-3 bg-green-50 rounded-2xl text-green-600 border border-green-100"><Phone size={20} /></div>
+                    <div className="min-w-0">
+                       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">WhatsApp</p>
+                       <p className="text-sm font-bold text-gray-700 leading-snug">{settings.whatsapp}</p>
+                       <a href={`https://wa.me/${settings.whatsapp.replace(/\D/g, '')}`} target="_blank" className="text-[10px] font-black text-green-600 flex items-center gap-1 mt-1 uppercase">INICIAR CONVERSA <MessageCircle size={10} /></a>
+                    </div>
+                 </div>
+               )}
+
                <div className="pt-4 border-t border-gray-100">
                   <button onClick={() => setIsInfoOpen(false)} className="w-full py-4 bg-primary text-white rounded-2xl font-bold shadow-xl text-xs uppercase tracking-widest">Voltar</button>
                </div>
