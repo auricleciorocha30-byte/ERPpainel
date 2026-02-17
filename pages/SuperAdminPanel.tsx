@@ -26,7 +26,8 @@ import {
   ChevronRight,
   ChevronLeft,
   Settings,
-  Save
+  Save,
+  LayoutDashboard
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { StoreProfile, Product } from '../types';
@@ -527,6 +528,9 @@ export default function SuperAdminPanel() {
                   >
                     {store.isActive ? <Lock size={14} /> : <Unlock size={14} />} {store.isActive ? 'Bloquear' : 'Reativar'}
                   </button>
+                  <a href={`/#/login?loja=${store.slug}`} target="_blank" className="flex items-center justify-center gap-2 py-4 bg-secondary text-primary rounded-2xl font-black text-[10px] uppercase col-span-2">
+                    <LayoutDashboard size={14} /> Acessar Painel ADM
+                  </a>
                   <a href={`/#/cardapio?loja=${store.slug}`} target="_blank" className="flex items-center justify-center gap-2 py-4 bg-primary text-white rounded-2xl font-black text-[10px] uppercase col-span-2">
                     <ArrowUpRight size={14} /> Ver Cardápio Público
                   </a>
