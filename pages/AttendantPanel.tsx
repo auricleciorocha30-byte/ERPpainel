@@ -16,7 +16,8 @@ import {
   Truck,
   Loader2,
   RefreshCw,
-  Lock
+  Lock,
+  Ticket
 } from 'lucide-react';
 import { Order, OrderStatus, Waitstaff, StoreSettings } from '../types';
 import { supabase } from '../lib/supabase';
@@ -94,7 +95,7 @@ const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, set
       const storeSlug = searchParams.get('loja');
       // Se for comanda, passa o tipo na URL para o DigitalMenu saber
       const typeParam = type === 'COMANDA' ? '&tipo=COMANDA' : '';
-      navigate(`/cardapio${storeSlug ? `?loja=${storeSlug}` : '?'}${typeParam}`);
+      navigate(`/cardapio?loja=${storeSlug || ''}${typeParam}`);
     }
   };
 
@@ -368,7 +369,7 @@ const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, set
               </div>
               <h2 className="text-2xl font-brand font-bold text-primary">{selectedTableModal.type === 'MESA' ? 'Mesa' : 'Comanda'} {selectedTableModal.id}</h2>
               <p className="text-[10px] font-black uppercase text-orange-400 tracking-widest mt-1">
-                Total acumulado: R$ {(selectedTableModal.type === 'MESA' ? occupiedTables.get(selectedTableModal.id) : activeCommands.get(selectedTableModal.id))?.total.toFixed(2)}
+                Total acumulado: R$ {((selectedTableModal.type === 'MESA' ? occupiedTables.get(selectedTableModal.id) : activeCommands.get(selectedTableModal.id))?.total ?? 0).toFixed(2)}
               </p>
             </div>
             <div className="p-8 space-y-3">
@@ -377,7 +378,7 @@ const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, set
                   onSelectTable(selectedTableModal.id); 
                   const storeSlug = searchParams.get('loja');
                   const typeParam = selectedTableModal.type === 'COMANDA' ? '&tipo=COMANDA' : '';
-                  navigate(`/cardapio${storeSlug ? `?loja=${storeSlug}` : '?'}${typeParam}`); 
+                  navigate(`/cardapio?loja=${storeSlug || ''}${typeParam}`); 
                 }} 
                 className="w-full flex items-center gap-4 p-5 bg-orange-50 rounded-2xl border border-orange-100 font-black text-[11px] uppercase tracking-wider text-orange-900 hover:bg-orange-100 transition-all active:scale-95"
               >
