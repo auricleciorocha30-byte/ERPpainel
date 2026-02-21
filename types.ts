@@ -1,6 +1,6 @@
 
 export type OrderStatus = 'PREPARANDO' | 'PRONTO' | 'ENTREGUE' | 'CANCELADO';
-export type OrderType = 'MESA' | 'BALCAO' | 'ENTREGA';
+export type OrderType = 'MESA' | 'BALCAO' | 'ENTREGA' | 'COMANDA';
 export type PaymentMethod = 'PIX' | 'CARTAO' | 'DINHEIRO';
 
 export interface StoreProfile {

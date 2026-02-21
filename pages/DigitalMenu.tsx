@@ -80,13 +80,14 @@ const DigitalMenu: React.FC<Props> = ({ products, categories: externalCategories
   const [hasSelectedMode, setHasSelectedMode] = useState(() => {
     if (isWaitstaff) return true;
     if (effectiveTable && settings.isTableOrderActive) return true;
-    if (urlType && ['BALCAO', 'ENTREGA', 'MESA'].includes(urlType)) return true;
+    if (urlType && ['BALCAO', 'ENTREGA', 'MESA', 'COMANDA'].includes(urlType)) return true;
     return false;
   });
   
   const [orderType, setOrderType] = useState<OrderType>(() => {
     if (urlType === 'BALCAO' && settings.isCounterPickupActive) return 'BALCAO';
     if (urlType === 'ENTREGA' && settings.isDeliveryActive) return 'ENTREGA';
+    if (urlType === 'COMANDA') return 'COMANDA';
     if (effectiveTable && settings.isTableOrderActive) return 'MESA';
     return isWaitstaff ? 'MESA' : 'BALCAO';
   });
@@ -249,7 +250,7 @@ const DigitalMenu: React.FC<Props> = ({ products, categories: externalCategories
 
   const handleCheckout = async () => {
     if (cart.length === 0) return;
-    if (orderType === 'MESA' && !manualTable) { alert('Informe o número da mesa.'); return; }
+    if ((orderType === 'MESA' || orderType === 'COMANDA') && !manualTable) { alert(`Informe o número da ${orderType === 'MESA' ? 'mesa' : 'comanda'}.`); return; }
     if (orderType === 'BALCAO' && !customerName && !isWaitstaff) { alert('Informe o seu nome.'); return; }
     if (orderType === 'ENTREGA' && (!customerName || !customerPhone || !deliveryAddress)) { alert('Preencha os dados de entrega.'); return; }
 
@@ -266,7 +267,7 @@ const DigitalMenu: React.FC<Props> = ({ products, categories: externalCategories
       paymentMethod: payment,
       changeFor: orderChangeFor,
       notes: notes.trim() || undefined, 
-      tableNumber: orderType === 'MESA' ? manualTable : undefined,
+      tableNumber: (orderType === 'MESA' || orderType === 'COMANDA') ? manualTable : undefined,
       customerName: customerName.trim() || (isWaitstaff ? `Atend: ${activeWaitstaff?.name}` : undefined), 
       customerPhone: customerPhone.trim() || undefined,
       deliveryAddress: orderType === 'ENTREGA' ? deliveryAddress.trim() : undefined,

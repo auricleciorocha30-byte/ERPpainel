@@ -31,6 +31,8 @@ const TVBoard: React.FC<Props> = ({ orders, settings, products }) => {
 
       if (o.type === 'MESA') {
         label = `MESA ${o.tableNumber}`;
+      } else if (o.type === 'COMANDA') {
+        label = `COMANDA ${o.tableNumber}`;
       } else if (o.type === 'BALCAO') {
         label = `BALCÃO ${firstName || shortId}`;
       } else {
@@ -101,7 +103,7 @@ const TVBoard: React.FC<Props> = ({ orders, settings, products }) => {
                   <div key={idx} className="p-4 bg-white/5 rounded-2xl flex items-center justify-between border border-white/5 animate-pulse">
                     <span className="text-xl font-bold uppercase tracking-tight truncate mr-2">{item.label}</span>
                     <div className="opacity-40 shrink-0">
-                        {item.type === 'MESA' ? <Utensils size={18}/> : item.type === 'ENTREGA' ? <Truck size={18}/> : <ShoppingBag size={18}/>}
+                        {item.type === 'MESA' || item.type === 'COMANDA' ? <Utensils size={18}/> : item.type === 'ENTREGA' ? <Truck size={18}/> : <ShoppingBag size={18}/>}
                     </div>
                   </div>
                 ))
@@ -120,7 +122,7 @@ const TVBoard: React.FC<Props> = ({ orders, settings, products }) => {
                   <div key={idx} className="p-6 bg-white text-[#3d251e] rounded-2xl shadow-xl flex items-center justify-between animate-bounce">
                     <span className="text-4xl font-black uppercase tracking-tight">{item.label}</span>
                     <div className="text-orange-500">
-                        {item.type === 'MESA' ? <Utensils size={40}/> : item.type === 'ENTREGA' ? <Truck size={40}/> : <ShoppingBag size={40}/>}
+                        {item.type === 'MESA' || item.type === 'COMANDA' ? <Utensils size={40}/> : item.type === 'ENTREGA' ? <Truck size={40}/> : <ShoppingBag size={40}/>}
                     </div>
                   </div>
                 ))

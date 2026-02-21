@@ -1,6 +1,10 @@
 
 import { neon } from '@neondatabase/serverless';
 
+// ATENÇÃO: Este arquivo simula o cliente do Supabase mas utiliza NEON DATABASE diretamente.
+// A variável 'supabase' exportada é na verdade um cliente Neon customizado.
+// Isso permite manter a compatibilidade com o código existente sem reescrever tudo.
+
 const CONNECTION_STRING = 'postgresql://neondb_owner:npg_XGPnYT8fA9Zb@ep-frosty-sun-ac27pah5-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require';
 const sql = neon(CONNECTION_STRING);
 

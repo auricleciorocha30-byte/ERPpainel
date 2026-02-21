@@ -317,6 +317,33 @@ export default function SuperAdminPanel() {
     setIsSaving(false);
   };
 
+  const handleDeleteStore = async (id: string) => {
+    if (!window.confirm("ATENÇÃO: Tem certeza que deseja excluir esta loja?\n\nIsso apagará TODOS os dados (produtos, pedidos, equipe) permanentemente.")) return;
+    
+    setLoading(true);
+    try {
+        // Clean up related data
+        await supabase.from('products').eq('store_id', id).delete();
+        await supabase.from('categories').eq('store_id', id).delete();
+        await supabase.from('waitstaff').eq('store_id', id).delete();
+        await supabase.from('orders').eq('store_id', id).delete();
+        
+        // Delete store
+        const { error } = await supabase.from('store_profiles').eq('id', id).delete();
+        
+        if (error) {
+            alert("Erro ao excluir loja: " + (error.message || "Erro desconhecido"));
+        } else {
+            fetchStores();
+        }
+    } catch (err) {
+        console.error("Erro ao excluir:", err);
+        alert("Erro ao processar exclusão.");
+    } finally {
+        setLoading(false);
+    }
+  };
+
   const toggleStoreStatus = async (id: string, currentStatus: boolean) => {
     await supabase.from('store_profiles').eq('id', id).update({ isactive: !currentStatus });
     fetchStores();
@@ -731,6 +758,12 @@ export default function SuperAdminPanel() {
                     className="flex items-center justify-center gap-2 py-3 bg-slate-50 text-slate-400 rounded-xl font-black text-[8px] uppercase col-span-2 mt-2 border border-slate-100"
                   >
                     {copiedId === store.slug ? <Check size={12} className="text-green-500" /> : <Copy size={12} />} {copiedId === store.slug ? 'Link Copiado' : 'Copiar Link do Cardápio'}
+                  </button>
+                  <button 
+                    onClick={() => handleDeleteStore(store.id)}
+                    className="flex items-center justify-center gap-2 py-3 bg-red-50 text-red-500 rounded-xl font-black text-[8px] uppercase col-span-2 mt-1 border border-red-100 hover:bg-red-100 transition-colors"
+                  >
+                    <Trash2 size={12} /> Excluir Loja Permanentemente
                   </button>
                 </div>
               </div>

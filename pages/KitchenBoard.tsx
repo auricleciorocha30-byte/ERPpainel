@@ -22,7 +22,7 @@ const KitchenBoard: React.FC<Props> = ({ orders, updateStatus }) => {
 
   const columns = useMemo(() => {
     return {
-      mesa: activeOrders.filter(o => o.type === 'MESA').sort((a, b) => a.createdAt - b.createdAt),
+      salao: activeOrders.filter(o => o.type === 'MESA' || o.type === 'COMANDA').sort((a, b) => a.createdAt - b.createdAt),
       balcao: activeOrders.filter(o => o.type === 'BALCAO').sort((a, b) => a.createdAt - b.createdAt),
       entrega: activeOrders.filter(o => o.type === 'ENTREGA').sort((a, b) => a.createdAt - b.createdAt),
     };
@@ -63,20 +63,20 @@ const KitchenBoard: React.FC<Props> = ({ orders, updateStatus }) => {
       </header>
 
       <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 overflow-hidden">
-        {/* COLUNA MESAS */}
+        {/* COLUNA SALÃO */}
         <section className="flex flex-col bg-zinc-800/40 rounded-[2.5rem] border border-white/5 overflow-hidden">
           <div className="p-6 flex items-center justify-between border-b border-white/5 bg-blue-500/10">
             <div className="flex items-center gap-3">
               <Utensils className="text-blue-400" />
-              <h2 className="text-xl font-bold uppercase tracking-tight">Mesas</h2>
+              <h2 className="text-xl font-bold uppercase tracking-tight">Salão</h2>
             </div>
-            <span className="bg-blue-500 text-[10px] font-black px-3 py-1 rounded-full">{columns.mesa.length}</span>
+            <span className="bg-blue-500 text-[10px] font-black px-3 py-1 rounded-full">{columns.salao.length}</span>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
-            {columns.mesa.map(order => (
+            {columns.salao.map(order => (
               <OrderCard key={order.id} order={order} onReady={handleMarkReady} elapsed={getTimeElapsed(order.createdAt)} />
             ))}
-            {columns.mesa.length === 0 && <EmptyState text="Nenhuma mesa pendente" />}
+            {columns.salao.length === 0 && <EmptyState text="Nenhum pedido no salão" />}
           </div>
         </section>
 
@@ -136,7 +136,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onReady, elapsed }) => {
              {isLate && <span className="bg-red-500 text-[8px] font-black px-2 py-0.5 rounded text-white animate-pulse">ATRASADO</span>}
           </div>
           <h3 className="text-2xl font-black text-zinc-900 leading-none">
-            {order.type === 'MESA' ? `MESA ${order.tableNumber}` : order.customerName || 'CLIENTE'}
+            {order.type === 'MESA' ? `MESA ${order.tableNumber}` : order.type === 'COMANDA' ? `COMANDA ${order.tableNumber}` : order.customerName || 'CLIENTE'}
           </h3>
           {order.waitstaffName && <p className="text-[10px] font-bold text-zinc-400 uppercase mt-1">Atendente: {order.waitstaffName}</p>}
         </div>

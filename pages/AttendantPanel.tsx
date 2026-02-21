@@ -33,7 +33,7 @@ interface Props {
 const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, settings, updateStatus, onLogout }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [selectedTableModal, setSelectedTableModal] = useState<string | null>(null);
+  const [selectedTableModal, setSelectedTableModal] = useState<{id: string, type: 'MESA' | 'COMANDA'} | null>(null);
   const [activeTab, setActiveTab] = useState<'MAPA' | 'PEDIDOS'>('MAPA');
   const [printOrder, setPrintOrder] = useState<any | null>(null);
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
@@ -55,7 +55,7 @@ const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, set
   const occupiedTables = useMemo(() => {
     const map = new Map<string, { status: string, count: number, total: number }>();
     activeOrders.forEach(o => {
-      if (o.tableNumber) {
+      if (o.tableNumber && o.type === 'MESA') {
         const current = map.get(o.tableNumber);
         const newStatus = (current?.status === 'PRONTO' || o.status === 'PRONTO') ? 'PRONTO' : 'PREPARANDO';
         map.set(o.tableNumber, { 
@@ -68,13 +68,33 @@ const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, set
     return map;
   }, [activeOrders]);
 
-  const handleTableClick = (tableNum: string) => {
-    if (occupiedTables.has(tableNum)) {
-      setSelectedTableModal(tableNum);
+  const activeCommands = useMemo(() => {
+    const map = new Map<string, { status: string, count: number, total: number }>();
+    activeOrders.forEach(o => {
+      if (o.tableNumber && o.type === 'COMANDA') {
+        const current = map.get(o.tableNumber);
+        const newStatus = (current?.status === 'PRONTO' || o.status === 'PRONTO') ? 'PRONTO' : 'PREPARANDO';
+        map.set(o.tableNumber, { 
+            status: newStatus, 
+            count: (current?.count || 0) + 1,
+            total: (current?.total || 0) + Number(o.total)
+        });
+      }
+    });
+    return map;
+  }, [activeOrders]);
+
+  const handleResourceClick = (id: string, type: 'MESA' | 'COMANDA') => {
+    const isOccupied = type === 'MESA' ? occupiedTables.has(id) : activeCommands.has(id);
+    
+    if (isOccupied) {
+      setSelectedTableModal({ id, type });
     } else {
-      onSelectTable(tableNum);
+      onSelectTable(id);
       const storeSlug = searchParams.get('loja');
-      navigate(`/cardapio${storeSlug ? `?loja=${storeSlug}` : ''}`);
+      // Se for comanda, passa o tipo na URL para o DigitalMenu saber
+      const typeParam = type === 'COMANDA' ? '&tipo=COMANDA' : '';
+      navigate(`/cardapio${storeSlug ? `?loja=${storeSlug}` : '?'}${typeParam}`);
     }
   };
 
@@ -84,8 +104,8 @@ const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, set
     navigate(`/cardapio?tipo=${type}${storeSlug ? `&loja=${storeSlug}` : ''}`); 
   };
 
-  const handlePrintConferencia = (tableNum: string) => {
-    const tableOrders = activeOrders.filter(o => o.tableNumber === tableNum);
+  const handlePrintConferencia = (tableNum: string, type?: 'MESA' | 'COMANDA') => {
+    const tableOrders = activeOrders.filter(o => o.tableNumber === tableNum && (!type || o.type === type));
     const combinedItems: any[] = [];
     
     tableOrders.forEach(order => {
@@ -120,8 +140,8 @@ const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, set
     }, 300);
   };
 
-  const updateTableOrders = async (tableNum: string, status: OrderStatus) => {
-    const tableOrders = activeOrders.filter(o => o.tableNumber === tableNum);
+  const updateTableOrders = async (tableNum: string, status: OrderStatus, type?: 'MESA' | 'COMANDA') => {
+    const tableOrders = activeOrders.filter(o => o.tableNumber === tableNum && (!type || o.type === type));
     setIsUpdating(`table-${tableNum}`);
     try {
         await Promise.all(tableOrders.map(o => updateStatus(o.id, status)));
@@ -180,6 +200,9 @@ const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, set
             <button onClick={() => handleQuickOrder('BALCAO')} className="flex items-center gap-2 px-4 py-3 bg-white/10 rounded-2xl hover:bg-white/20 font-bold text-xs">
               <ShoppingBag size={18} /> Balcão
             </button>
+            <button onClick={() => handleQuickOrder('COMANDA')} className="flex items-center gap-2 px-4 py-3 bg-white/10 rounded-2xl hover:bg-white/20 font-bold text-xs">
+              <Ticket size={18} /> Comanda
+            </button>
             <button onClick={() => handleQuickOrder('ENTREGA')} className="flex items-center gap-2 px-4 py-3 bg-white/10 rounded-2xl hover:bg-white/20 font-bold text-xs">
               <Truck size={18} /> Entrega
             </button>
@@ -205,13 +228,14 @@ const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, set
         </div>
 
         {activeTab === 'MAPA' ? (
+          <>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 animate-fade-in">
             {tables.map(num => {
               const occ = occupiedTables.get(num);
               return (
                 <button 
                   key={num} 
-                  onClick={() => handleTableClick(num)} 
+                  onClick={() => handleResourceClick(num, 'MESA')} 
                   className={`relative aspect-square rounded-[2rem] p-6 text-center border-2 flex flex-col items-center justify-center transition-all active:scale-95 ${
                     occ?.status === 'PRONTO' 
                       ? 'bg-green-600 border-green-400 shadow-lg shadow-green-900/20' 
@@ -231,15 +255,40 @@ const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, set
               );
             })}
           </div>
-        ) : (
+
+          {activeCommands.size > 0 && (
+            <div className="mt-8 pt-6 border-t border-white/10">
+              <h3 className="text-white/50 font-bold uppercase tracking-widest text-xs mb-4 flex items-center gap-2"><Ticket size={14}/> Comandas Ativas</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 animate-fade-in">
+                {Array.from(activeCommands.entries()).map(([num, occ]) => (
+                  <button 
+                    key={`cmd-${num}`} 
+                    onClick={() => handleResourceClick(num, 'COMANDA')} 
+                    className={`relative aspect-square rounded-[2rem] p-6 text-center border-2 flex flex-col items-center justify-center transition-all active:scale-95 ${
+                      occ.status === 'PRONTO' 
+                        ? 'bg-green-600 border-green-400 shadow-lg shadow-green-900/20' 
+                        : 'bg-purple-600 border-purple-400 shadow-lg shadow-purple-900/20'
+                    }`}
+                  >
+                    <Ticket size={16} className="text-white/60 mb-1" />
+                    <span className="text-5xl font-bold text-white block leading-none">{num}</span>
+                    <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
+                      <div className="bg-white/20 text-white text-[9px] px-2 py-0.5 rounded-full font-bold">R$ {occ.total.toFixed(2)}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </>) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
             {activeOrders.map(order => (
               <div key={order.id} className="bg-white rounded-[2.5rem] p-6 shadow-xl flex flex-col border border-gray-100 relative group">
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest ${order.type === 'MESA' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'}`}>
-                            {order.type} {order.tableNumber && `• Mesa ${order.tableNumber}`}
+                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest ${order.type === 'MESA' ? 'bg-blue-100 text-blue-600' : order.type === 'COMANDA' ? 'bg-purple-100 text-purple-600' : 'bg-orange-100 text-orange-600'}`}>
+                            {order.type} {(order.type === 'MESA' || order.type === 'COMANDA') && order.tableNumber && `• ${order.type === 'MESA' ? 'Mesa' : 'Cmd'} ${order.tableNumber}`}
                         </span>
                     </div>
                     <h3 className="font-bold text-primary truncate text-lg">
@@ -315,19 +364,20 @@ const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, set
                 <X size={24}/>
               </button>
               <div className="w-16 h-16 bg-primary text-secondary rounded-[1.5rem] flex items-center justify-center mx-auto mb-4 shadow-xl shadow-black/10">
-                <Hash size={32} />
+                {selectedTableModal.type === 'MESA' ? <Hash size={32} /> : <Ticket size={32} />}
               </div>
-              <h2 className="text-2xl font-brand font-bold text-primary">Mesa {selectedTableModal}</h2>
+              <h2 className="text-2xl font-brand font-bold text-primary">{selectedTableModal.type === 'MESA' ? 'Mesa' : 'Comanda'} {selectedTableModal.id}</h2>
               <p className="text-[10px] font-black uppercase text-orange-400 tracking-widest mt-1">
-                Total acumulado: R$ {occupiedTables.get(selectedTableModal!)?.total.toFixed(2)}
+                Total acumulado: R$ {(selectedTableModal.type === 'MESA' ? occupiedTables.get(selectedTableModal.id) : activeCommands.get(selectedTableModal.id))?.total.toFixed(2)}
               </p>
             </div>
             <div className="p-8 space-y-3">
               <button 
                 onClick={() => { 
-                  onSelectTable(selectedTableModal); 
+                  onSelectTable(selectedTableModal.id); 
                   const storeSlug = searchParams.get('loja');
-                  navigate(`/cardapio${storeSlug ? `?loja=${storeSlug}` : ''}`); 
+                  const typeParam = selectedTableModal.type === 'COMANDA' ? '&tipo=COMANDA' : '';
+                  navigate(`/cardapio${storeSlug ? `?loja=${storeSlug}` : '?'}${typeParam}`); 
                 }} 
                 className="w-full flex items-center gap-4 p-5 bg-orange-50 rounded-2xl border border-orange-100 font-black text-[11px] uppercase tracking-wider text-orange-900 hover:bg-orange-100 transition-all active:scale-95"
               >
@@ -335,27 +385,27 @@ const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, set
               </button>
               
               <button 
-                onClick={() => handlePrintConferencia(selectedTableModal!)} 
+                onClick={() => handlePrintConferencia(selectedTableModal.id, selectedTableModal.type)} 
                 className="w-full flex items-center gap-4 p-5 bg-gray-50 rounded-2xl border border-gray-100 font-black text-[11px] uppercase tracking-wider text-gray-700 hover:bg-gray-100 transition-all active:scale-95"
               >
                 <Printer className="text-gray-400" size={20} /> Imprimir Conferência
               </button>
 
               <button 
-                disabled={isUpdating === `table-${selectedTableModal}`}
-                onClick={() => updateTableOrders(selectedTableModal!, 'PRONTO')} 
+                disabled={isUpdating === `table-${selectedTableModal.id}`}
+                onClick={() => updateTableOrders(selectedTableModal.id, 'PRONTO', selectedTableModal.type)} 
                 className="w-full flex items-center gap-4 p-5 bg-blue-50 rounded-2xl border border-blue-100 font-black text-[11px] uppercase tracking-wider text-blue-700 hover:bg-blue-100 transition-all active:scale-95"
               >
-                {isUpdating === `table-${selectedTableModal}` ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle2 className="text-blue-500" size={20} />} Marcar Tudo Pronto
+                {isUpdating === `table-${selectedTableModal.id}` ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle2 className="text-blue-500" size={20} />} Marcar Tudo Pronto
               </button>
               
               {canFinish ? (
                 <button 
-                  disabled={isUpdating === `table-${selectedTableModal}`}
-                  onClick={() => updateTableOrders(selectedTableModal!, 'ENTREGUE')} 
+                  disabled={isUpdating === `table-${selectedTableModal.id}`}
+                  onClick={() => updateTableOrders(selectedTableModal.id, 'ENTREGUE', selectedTableModal.type)} 
                   className="w-full flex items-center gap-4 p-5 bg-green-50 rounded-2xl border border-green-100 font-black text-[11px] uppercase tracking-wider text-green-700 hover:bg-green-100 transition-all active:scale-95"
                 >
-                  {isUpdating === `table-${selectedTableModal}` ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle className="text-green-500" size={20} />} Finalizar Conta
+                  {isUpdating === `table-${selectedTableModal.id}` ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle className="text-green-500" size={20} />} Finalizar Conta
                 </button>
               ) : (
                 <div className="w-full flex items-center gap-4 p-5 bg-gray-50 rounded-2xl border border-gray-100 font-black text-[9px] uppercase tracking-wider text-gray-400 cursor-not-allowed">
@@ -365,11 +415,11 @@ const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, set
 
               {canCancel ? (
                 <button 
-                  disabled={isUpdating === `table-${selectedTableModal}`}
-                  onClick={() => { if(window.confirm('Deseja realmente cancelar todos os pedidos desta mesa?')) updateTableOrders(selectedTableModal!, 'CANCELADO'); }} 
+                  disabled={isUpdating === `table-${selectedTableModal.id}`}
+                  onClick={() => { if(window.confirm('Deseja realmente cancelar todos os pedidos desta mesa/comanda?')) updateTableOrders(selectedTableModal.id, 'CANCELADO', selectedTableModal.type); }} 
                   className="w-full flex items-center gap-4 p-5 bg-red-50 rounded-2xl border border-red-100 font-black text-[11px] uppercase tracking-wider text-red-700 hover:bg-red-100 transition-all active:scale-95"
                 >
-                  {isUpdating === `table-${selectedTableModal}` ? <Loader2 className="animate-spin" size={20} /> : <XCircle className="text-red-500" size={20} />} Cancelar Pedidos
+                  {isUpdating === `table-${selectedTableModal.id}` ? <Loader2 className="animate-spin" size={20} /> : <XCircle className="text-red-500" size={20} />} Cancelar Pedidos
                 </button>
               ) : (
                 <div className="w-full flex items-center gap-4 p-5 bg-gray-50 rounded-2xl border border-gray-100 font-black text-[9px] uppercase tracking-wider text-gray-400 cursor-not-allowed">
