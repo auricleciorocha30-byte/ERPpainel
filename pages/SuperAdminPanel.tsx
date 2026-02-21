@@ -31,13 +31,21 @@ import {
   Users,
   Key,
   Eye,
-  EyeOff
+  EyeOff,
+  LogOut
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { StoreProfile, Product, Waitstaff } from '../types';
 import { INITIAL_SETTINGS } from '../constants';
 
 export default function SuperAdminPanel() {
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return localStorage.getItem('master_logged_in') === 'true';
+  });
+  const [loginUsername, setLoginUsername] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+
   const [stores, setStores] = useState<StoreProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -340,6 +348,69 @@ export default function SuperAdminPanel() {
     s.slug.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loginUsername === 'master' && loginPassword === 'master123') {
+      setIsLoggedIn(true);
+      localStorage.setItem('master_logged_in', 'true');
+      setLoginError('');
+    } else {
+      setLoginError('Credenciais inválidas');
+    }
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    localStorage.removeItem('master_logged_in');
+  };
+
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-[#F0F2F5] flex items-center justify-center p-6 text-zinc-900">
+        <div className="bg-white p-10 rounded-[3rem] shadow-2xl max-w-md w-full animate-scale-up border border-slate-100">
+          <div className="flex justify-center mb-8">
+            <div className="p-5 bg-secondary rounded-3xl text-primary shadow-inner">
+              <ShieldCheck size={48} />
+            </div>
+          </div>
+          <h1 className="text-3xl font-brand font-bold text-center text-slate-800 mb-2">Master Control</h1>
+          <p className="text-center text-slate-500 font-medium mb-8">Acesso restrito ao administrador do sistema</p>
+          
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Usuário</label>
+              <input 
+                required 
+                type="text" 
+                value={loginUsername} 
+                onChange={e => setLoginUsername(e.target.value)} 
+                className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold border border-transparent focus:border-slate-200 transition-all" 
+                placeholder="Digite seu usuário"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Senha</label>
+              <input 
+                required 
+                type="password" 
+                value={loginPassword} 
+                onChange={e => setLoginPassword(e.target.value)} 
+                className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-bold border border-transparent focus:border-slate-200 transition-all" 
+                placeholder="Digite sua senha"
+              />
+            </div>
+            
+            {loginError && <p className="text-red-500 text-sm font-bold text-center bg-red-50 py-3 rounded-xl">{loginError}</p>}
+            
+            <button type="submit" className="w-full py-5 bg-[#001F3F] text-white rounded-[1.8rem] font-bold shadow-xl hover:bg-black transition-all flex items-center justify-center gap-2 mt-4">
+              <Lock size={18} /> Acessar Painel
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   if (isManagingContent && editingStore) {
     return (
       <div className="min-h-screen bg-[#F0F2F5] p-6 text-zinc-900">
@@ -584,6 +655,9 @@ export default function SuperAdminPanel() {
           </div>
           <span className="font-brand font-bold text-xl tracking-tight">Master Control <span className="text-secondary font-sans text-[10px] uppercase ml-2 bg-white/10 px-2 py-0.5 rounded">v2.4</span></span>
         </div>
+        <button onClick={handleLogout} className="flex items-center gap-2 text-white/70 hover:text-white transition-colors font-bold text-sm bg-white/5 px-4 py-2 rounded-xl">
+          <LogOut size={18} /> Sair
+        </button>
       </nav>
 
       <div className="max-w-7xl mx-auto p-6 md:p-10 space-y-10">
