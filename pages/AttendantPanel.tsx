@@ -85,6 +85,55 @@ const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, set
     return map;
   }, [activeOrders]);
 
+  const displayOrders = useMemo(() => {
+    const groups: Record<string, Order & { originalIds: string[] }> = {};
+    const result: (Order & { originalIds: string[] })[] = [];
+
+    activeOrders.forEach(order => {
+        // Group by Table/Command if applicable
+        if ((order.type === 'COMANDA' || order.type === 'MESA') && order.tableNumber) {
+            const key = `${order.type}-${order.tableNumber}`;
+            if (!groups[key]) {
+                // Clone to avoid mutating original order
+                groups[key] = {
+                    ...order,
+                    items: [...order.items],
+                    originalIds: [order.id]
+                };
+            } else {
+                // Merge items
+                const existingItems = groups[key].items;
+                order.items.forEach(newItem => {
+                    const existingItemIndex = existingItems.findIndex(ei => ei.productId === newItem.productId && ei.isByWeight === newItem.isByWeight);
+                    if (existingItemIndex >= 0) {
+                        // Update quantity of existing item
+                        const existing = existingItems[existingItemIndex];
+                        existingItems[existingItemIndex] = {
+                            ...existing,
+                            quantity: existing.quantity + newItem.quantity
+                        };
+                    } else {
+                        existingItems.push(newItem);
+                    }
+                });
+
+                // Sum total
+                groups[key].total += order.total;
+                groups[key].originalIds.push(order.id);
+
+                // Update status priority: If any is PREPARANDO, group is PREPARANDO.
+                if (order.status === 'PREPARANDO') {
+                    groups[key].status = 'PREPARANDO';
+                }
+            }
+        } else {
+            result.push({ ...order, originalIds: [order.id] });
+        }
+    });
+
+    return [...Object.values(groups), ...result].sort((a, b) => b.createdAt - a.createdAt);
+  }, [activeOrders]);
+
   const handleResourceClick = (id: string, type: 'MESA' | 'COMANDA') => {
     const isOccupied = type === 'MESA' ? occupiedTables.has(id) : activeCommands.has(id);
     
@@ -152,10 +201,10 @@ const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, set
     }
   };
 
-  const handleIndividualStatusUpdate = async (id: string, status: OrderStatus) => {
-    setIsUpdating(id);
+  const handleGroupStatusUpdate = async (ids: string[], status: OrderStatus) => {
+    setIsUpdating(ids[0]);
     try {
-        await updateStatus(id, status);
+        await Promise.all(ids.map(id => updateStatus(id, status)));
     } finally {
         setIsUpdating(null);
     }
@@ -283,7 +332,7 @@ const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, set
           )}
         </>) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
-            {activeOrders.map(order => (
+            {displayOrders.map(order => (
               <div key={order.id} className="bg-white rounded-[2.5rem] p-6 shadow-xl flex flex-col border border-gray-100 relative group">
                 <div className="flex justify-between items-start mb-4">
                   <div>
@@ -305,7 +354,7 @@ const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, set
                   {order.items.map((it, i) => (
                     <div key={i} className="flex justify-between text-xs font-bold text-zinc-600">
                       <span className="truncate pr-2">
-                        <span className="bg-zinc-100 px-1.5 py-0.5 rounded mr-1.5">{it.quantity}x</span> {it.name}
+                        <span className="bg-zinc-100 px-1.5 py-0.5 rounded mr-1.5">{it.isByWeight ? it.quantity.toFixed(3) : it.quantity}x</span> {it.name}
                       </span>
                       <span className="shrink-0 text-zinc-400">R$ {(it.price * it.quantity).toFixed(2)}</span>
                     </div>
@@ -323,7 +372,7 @@ const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, set
                     {order.status === 'PREPARANDO' && (
                       <button 
                         disabled={isUpdating === order.id}
-                        onClick={() => handleIndividualStatusUpdate(order.id, 'PRONTO')} 
+                        onClick={() => handleGroupStatusUpdate(order.originalIds, 'PRONTO')} 
                         className="flex-1 py-3.5 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
                       >
                         {isUpdating === order.id ? <Loader2 className="animate-spin" size={14} /> : 'MARCAR PRONTO'}
@@ -333,7 +382,7 @@ const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, set
                     {canFinish ? (
                       <button 
                         disabled={isUpdating === order.id}
-                        onClick={() => handleIndividualStatusUpdate(order.id, 'ENTREGUE')} 
+                        onClick={() => handleGroupStatusUpdate(order.originalIds, 'ENTREGUE')} 
                         className="flex-1 py-3.5 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
                       >
                         {isUpdating === order.id ? <Loader2 className="animate-spin" size={14} /> : 'FINALIZAR'}
@@ -347,7 +396,7 @@ const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, set
                 </div>
               </div>
             ))}
-            {activeOrders.length === 0 && (
+            {displayOrders.length === 0 && (
               <div className="col-span-full py-24 text-center text-white/20 italic space-y-4">
                 <RefreshCw size={48} className="mx-auto opacity-20" />
                 <p>Nenhum pedido em aberto no momento.</p>
