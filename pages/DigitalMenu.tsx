@@ -78,9 +78,9 @@ const DigitalMenu: React.FC<Props> = ({ products, categories: externalCategories
   const [isWaitstaff, setIsWaitstaff] = useState(initialIsWaitstaff || !!localStorage.getItem('gc-conveniencia-session-v1'));
 
   const [hasSelectedMode, setHasSelectedMode] = useState(() => {
+    if (urlType && ['BALCAO', 'ENTREGA', 'MESA', 'COMANDA'].includes(urlType)) return true;
     if (isWaitstaff) return true;
     if (effectiveTable && settings.isTableOrderActive) return true;
-    if (urlType && ['BALCAO', 'ENTREGA', 'MESA', 'COMANDA'].includes(urlType)) return true;
     return false;
   });
   
@@ -91,6 +91,19 @@ const DigitalMenu: React.FC<Props> = ({ products, categories: externalCategories
     if (effectiveTable && settings.isTableOrderActive) return 'MESA';
     return isWaitstaff ? 'MESA' : 'BALCAO';
   });
+
+  useEffect(() => {
+    if (isWaitstaff && !urlType && !effectiveTable && orderType === 'BALCAO') {
+        setOrderType('MESA');
+    }
+  }, [isWaitstaff, urlType, effectiveTable, orderType]);
+
+  const handleResetMode = () => {
+    if (urlType || effectiveTable) return; // Don't reset if locked by URL
+    setHasSelectedMode(false);
+    setCheckoutStep('cart');
+    setIsCartOpen(false);
+  };
 
   const [manualTable, setManualTable] = useState(effectiveTable || '');
   const [payment, setPayment] = useState<PaymentMethod>('PIX');
@@ -320,6 +333,16 @@ const DigitalMenu: React.FC<Props> = ({ products, categories: externalCategories
                       <ArrowRight className="text-orange-200 group-hover:text-orange-400 group-hover:translate-x-1 transition-all" size={20} />
                   </button>
                 )}
+                <button onClick={() => { setOrderType('COMANDA'); setHasSelectedMode(true); }} className="group flex items-center justify-between p-5 bg-purple-50/50 hover:bg-purple-100/50 rounded-[1.8rem] transition-all border border-purple-100 active:scale-95 text-left">
+                    <div className="flex items-center gap-5">
+                        <div className="p-4 bg-white rounded-2xl text-purple-600 shadow-sm transition-transform group-hover:scale-110"><Ticket size={28} /></div>
+                        <div>
+                          <p className="font-bold text-lg text-primary leading-none">Comanda</p>
+                          <p className="text-[10px] text-purple-700 opacity-60 font-black uppercase mt-1 tracking-wider">Tenho uma comanda</p>
+                        </div>
+                    </div>
+                    <ArrowRight className="text-purple-200 group-hover:text-purple-400 group-hover:translate-x-1 transition-all" size={20} />
+                </button>
                 {settings.isCounterPickupActive && (
                   <button onClick={() => { setOrderType('BALCAO'); setHasSelectedMode(true); }} className="group flex items-center justify-between p-5 bg-blue-50/50 hover:bg-blue-100/50 rounded-[1.8rem] transition-all border border-blue-100 active:scale-95 text-left">
                       <div className="flex items-center gap-5">
@@ -361,7 +384,9 @@ const DigitalMenu: React.FC<Props> = ({ products, categories: externalCategories
             </button>
             <div className="flex flex-col min-w-0">
                 <h1 className="font-brand text-sm md:text-base font-bold leading-none truncate">{settings.storeName}</h1>
-                <span className="text-[9px] uppercase font-black opacity-70 truncate mt-0.5">{orderType} {orderType === 'MESA' && manualTable ? `• Mesa ${manualTable}` : ''}</span>
+                <button onClick={handleResetMode} className="text-[9px] uppercase font-black opacity-70 truncate mt-0.5 text-left hover:opacity-100 underline decoration-dotted underline-offset-2">
+                  {orderType} {(orderType === 'MESA' || orderType === 'COMANDA') && manualTable ? `• ${orderType === 'MESA' ? 'Mesa' : 'Comanda'} ${manualTable}` : ''}
+                </button>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -518,9 +543,9 @@ const DigitalMenu: React.FC<Props> = ({ products, categories: externalCategories
                      <button onClick={() => setCheckoutStep('cart')} className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2"><ChevronLeft size={14}/> Voltar para Sacola</button>
                      
                      <div className="space-y-4">
-                        {orderType === 'MESA' ? (
+                        {orderType === 'MESA' || orderType === 'COMANDA' ? (
                            <div className="space-y-2">
-                              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-4">Número da Mesa</label>
+                              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-4">Número da {orderType === 'MESA' ? 'Mesa' : 'Comanda'}</label>
                               <div className="relative">
                                  <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
                                  <input type="number" value={manualTable} onChange={e => setManualTable(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none font-bold text-lg" placeholder="EX: 01" />
