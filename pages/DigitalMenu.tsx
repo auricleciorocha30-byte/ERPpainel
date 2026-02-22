@@ -20,7 +20,6 @@ import {
   MessageCircle, 
   Store, 
   Scale,
-  Ticket,
   AlertTriangle,
   Power,
   Info,
@@ -335,7 +334,7 @@ const DigitalMenu: React.FC<Props> = ({ products, categories: externalCategories
                 )}
                 <button onClick={() => { setOrderType('COMANDA'); setHasSelectedMode(true); }} className="group flex items-center justify-between p-5 bg-purple-50/50 hover:bg-purple-100/50 rounded-[1.8rem] transition-all border border-purple-100 active:scale-95 text-left">
                     <div className="flex items-center gap-5">
-                        <div className="p-4 bg-white rounded-2xl text-purple-600 shadow-sm transition-transform group-hover:scale-110"><Ticket size={28} /></div>
+                        <div className="p-4 bg-white rounded-2xl text-purple-600 shadow-sm transition-transform group-hover:scale-110"><Tag size={28} /></div>
                         <div>
                           <p className="font-bold text-lg text-primary leading-none">Comanda</p>
                           <p className="text-[10px] text-purple-700 opacity-60 font-black uppercase mt-1 tracking-wider">Tenho uma comanda</p>
@@ -506,7 +505,7 @@ const DigitalMenu: React.FC<Props> = ({ products, categories: externalCategories
                          {/* CUPOM */}
                          <div className="pt-6 border-t border-gray-100">
                              <div className="flex items-center gap-3 mb-3">
-                                <Ticket size={18} className="text-orange-500" />
+                                <Tag size={18} className="text-orange-500" />
                                 <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Cupom de Desconto</span>
                              </div>
                              {appliedCoupon ? (

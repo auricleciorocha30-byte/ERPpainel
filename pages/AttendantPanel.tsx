@@ -17,7 +17,7 @@ import {
   Loader2,
   RefreshCw,
   Lock,
-  Ticket
+  Tag
 } from 'lucide-react';
 import { Order, OrderStatus, Waitstaff, StoreSettings } from '../types';
 import { supabase } from '../lib/supabase';
@@ -202,7 +202,7 @@ const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, set
               <ShoppingBag size={18} /> Balcão
             </button>
             <button onClick={() => handleQuickOrder('COMANDA')} className="flex items-center gap-2 px-4 py-3 bg-white/10 rounded-2xl hover:bg-white/20 font-bold text-xs">
-              <Ticket size={18} /> Comanda
+              <Tag size={18} /> Comanda
             </button>
             <button onClick={() => handleQuickOrder('ENTREGA')} className="flex items-center gap-2 px-4 py-3 bg-white/10 rounded-2xl hover:bg-white/20 font-bold text-xs">
               <Truck size={18} /> Entrega
@@ -259,7 +259,7 @@ const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, set
 
           {activeCommands.size > 0 && (
             <div className="mt-8 pt-6 border-t border-white/10">
-              <h3 className="text-white/50 font-bold uppercase tracking-widest text-xs mb-4 flex items-center gap-2"><Ticket size={14}/> Comandas Ativas</h3>
+              <h3 className="text-white/50 font-bold uppercase tracking-widest text-xs mb-4 flex items-center gap-2"><Tag size={14}/> Comandas Ativas</h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 animate-fade-in">
                 {Array.from(activeCommands.entries()).map(([num, occ]) => (
                   <button 
@@ -271,7 +271,7 @@ const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, set
                         : 'bg-purple-600 border-purple-400 shadow-lg shadow-purple-900/20'
                     }`}
                   >
-                    <Ticket size={16} className="text-white/60 mb-1" />
+                    <Tag size={16} className="text-white/60 mb-1" />
                     <span className="text-5xl font-bold text-white block leading-none">{num}</span>
                     <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
                       <div className="bg-white/20 text-white text-[9px] px-2 py-0.5 rounded-full font-bold">R$ {occ.total.toFixed(2)}</div>
@@ -365,7 +365,7 @@ const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, set
                 <X size={24}/>
               </button>
               <div className="w-16 h-16 bg-primary text-secondary rounded-[1.5rem] flex items-center justify-center mx-auto mb-4 shadow-xl shadow-black/10">
-                {selectedTableModal.type === 'MESA' ? <Hash size={32} /> : <Ticket size={32} />}
+                {selectedTableModal.type === 'MESA' ? <Hash size={32} /> : <Tag size={32} />}
               </div>
               <h2 className="text-2xl font-brand font-bold text-primary">{selectedTableModal.type === 'MESA' ? 'Mesa' : 'Comanda'} {selectedTableModal.id}</h2>
               <p className="text-[10px] font-black uppercase text-orange-400 tracking-widest mt-1">
