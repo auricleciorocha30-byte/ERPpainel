@@ -67,7 +67,8 @@ const SCHEMA_STATEMENTS = [
   `ALTER TABLE waitstaff ADD COLUMN IF NOT EXISTS store_id UUID;`,
   `ALTER TABLE categories ADD COLUMN IF NOT EXISTS store_id UUID;`,
   `ALTER TABLE products ADD COLUMN IF NOT EXISTS store_id UUID;`,
-  `ALTER TABLE orders ADD COLUMN IF NOT EXISTS store_id UUID;`
+  `ALTER TABLE orders ADD COLUMN IF NOT EXISTS store_id UUID;`,
+  `ALTER TABLE products ADD COLUMN IF NOT EXISTS barcode TEXT;`
 ];
 
 let schemaInitialized = false;
@@ -185,18 +186,29 @@ class NeonBridge {
   async upsert(values: any[]) {
     await ensureSchema();
     try {
+        const results = [];
         for (const val of values) {
             const id = val.id;
             if (id) {
                 const existing = await this.from(this.tableName).eq('id', id).maybeSingle();
                 if (existing.data) {
-                    await this.from(this.tableName).eq('id', id).update(val);
+                    const updated = await this.from(this.tableName).eq('id', id).update(val);
+                    if (updated.data && updated.data.length > 0) {
+                        results.push(updated.data[0]);
+                    } else {
+                        results.push(val);
+                    }
                     continue;
                 }
             }
-            await this.insert([val]);
+            const inserted = await this.insert([val]);
+            if (inserted.data && inserted.data.length > 0) {
+                results.push(inserted.data[0]);
+            } else {
+                results.push(val);
+            }
         }
-        return { data: values, error: null };
+        return { data: results, error: null };
     } catch (err: any) {
         return { data: null, error: err };
     }

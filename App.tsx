@@ -185,7 +185,8 @@ function StoreContext() {
     imageUrl: p.imageUrl || p.imageurl || p.image_url || '',
     isActive: p.isActive ?? p.isactive ?? p.is_active ?? true,
     featuredDay: p.featuredDay ?? p.featuredday ?? p.featured_day,
-    isByWeight: p.isByWeight ?? p.isbyweight ?? p.is_by_weight ?? false
+    isByWeight: p.isByWeight ?? p.isbyweight ?? p.is_by_weight ?? false,
+    barcode: p.barcode || undefined
   }), []);
 
   useEffect(() => {
@@ -235,12 +236,20 @@ function StoreContext() {
         supabase.from('categories').select('*').eq('store_id', currentStore.id)
       ]);
       
+      let mappedP: Product[] = [];
+      let cats: string[] = [];
+
       if (pRes.data) {
-        const mappedP = pRes.data.map(mapProductFromDb);
+        mappedP = pRes.data.map(mapProductFromDb);
         setProducts(mappedP);
-        const cats = cRes.data ? cRes.data.map((c: any) => c.name) : [];
+      }
+
+      if (cRes.data) {
+        cats = cRes.data.map((c: any) => c.name);
         setCategories(cats);
+      }
         
+      if (pRes.data || cRes.data) {
         localStorage.setItem(`${METADATA_CACHE_KEY}_${currentStore.id}`, JSON.stringify({
           products: mappedP,
           categories: cats,
@@ -372,17 +381,13 @@ function StoreContext() {
           const payload = { ...p, store_id: currentStore?.id };
           if (!payload.id) delete payload.id;
 
-          const { data, error } = await supabase.from('products').upsert([payload]).select().single();
+          // NeonBridge upsert returns { data: [result], error } directly. No .select() needed.
+          const { data, error } = await supabase.from('products').upsert([payload]);
           if (error) throw error;
 
-          if (data) {
-            const savedProduct = mapProductFromDb(data);
+          if (data && data.length > 0) {
+            const savedProduct = mapProductFromDb(data[0]);
             setProducts(prev => {
-              // If we updated an existing product, replace it.
-              // If we inserted a new one, p.id was undefined, but savedProduct.id is set.
-              // We should check if we have a product with the same ID (update) or not (insert).
-              // However, since p.id might be undefined for insert, we can't use it to find 'exists' reliably if we relied on it.
-              // But savedProduct.id is the source of truth.
               const exists = prev.find(item => item.id === savedProduct.id);
               if (exists) {
                 return prev.map(item => item.id === savedProduct.id ? savedProduct : item);

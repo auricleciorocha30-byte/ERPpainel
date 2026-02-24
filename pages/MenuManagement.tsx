@@ -36,7 +36,7 @@ const MenuManagement: React.FC<Props> = ({ products, saveProduct, deleteProduct,
 
     try {
         const productData: Partial<Product> = {
-            id: editingProduct.id, // Don't generate random ID here, let DB handle it
+            id: editingProduct.id || Math.random().toString(36).substr(2, 9),
             name: editingProduct.name || '',
             description: editingProduct.description || '',
             price: Number(editingProduct.price) || 0,
@@ -78,7 +78,14 @@ const MenuManagement: React.FC<Props> = ({ products, saveProduct, deleteProduct,
       const { error } = await supabase.from('categories').insert([{ name: trimmedName, store_id: storeId }]);
       if (error) {
          if (error.code === '23505') { // Unique violation
-             alert("Esta categoria já existe.");
+             // If it exists in DB but not locally, add it to local state so user can use it
+             if (!categories.includes(trimmedName)) {
+                 setCategories([...categories, trimmedName]);
+                 setNewCategoryName('');
+                 alert("Categoria recuperada do banco de dados.");
+             } else {
+                 alert("Esta categoria já existe na lista.");
+             }
          } else {
              throw error;
          }
@@ -103,7 +110,7 @@ const MenuManagement: React.FC<Props> = ({ products, saveProduct, deleteProduct,
 
     if (window.confirm(`Deseja excluir a categoria "${catName}"?`)) {
       try {
-        const { error } = await supabase.from('categories').delete().eq('name', catName).eq('store_id', storeId);
+        const { error } = await supabase.from('categories').eq('name', catName).eq('store_id', storeId).delete();
         if (error) throw error;
         setCategories(categories.filter(c => c !== catName));
         if (onCategoryChange) onCategoryChange();
