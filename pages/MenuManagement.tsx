@@ -36,7 +36,7 @@ const MenuManagement: React.FC<Props> = ({ products, saveProduct, deleteProduct,
 
     try {
         const productData: Partial<Product> = {
-            id: editingProduct.id || Math.random().toString(36).substr(2, 9),
+            id: editingProduct.id, // Don't generate random ID here, let DB handle it
             name: editingProduct.name || '',
             description: editingProduct.description || '',
             price: Number(editingProduct.price) || 0,
@@ -60,20 +60,35 @@ const MenuManagement: React.FC<Props> = ({ products, saveProduct, deleteProduct,
   };
 
   const handleAddCategory = async () => {
-    if (!newCategoryName.trim()) return;
-    if (!storeId) {
-        alert("Erro: Loja não identificada.");
+    const trimmedName = newCategoryName.trim();
+    if (!trimmedName) return;
+    
+    if (categories.some(c => c.toLowerCase() === trimmedName.toLowerCase())) {
+        alert("Esta categoria já existe.");
         return;
     }
+
+    if (!storeId) {
+        alert("Erro: Loja não identificada. Recarregue a página.");
+        return;
+    }
+    
     setIsSavingCategory(true);
     try {
-      const { error } = await supabase.from('categories').insert([{ name: newCategoryName.trim(), store_id: storeId }]);
-      if (error) throw error;
-      
-      setCategories([...categories, newCategoryName.trim()]);
-      setNewCategoryName('');
-      if (onCategoryChange) onCategoryChange();
+      const { error } = await supabase.from('categories').insert([{ name: trimmedName, store_id: storeId }]);
+      if (error) {
+         if (error.code === '23505') { // Unique violation
+             alert("Esta categoria já existe.");
+         } else {
+             throw error;
+         }
+      } else {
+          setCategories([...categories, trimmedName]);
+          setNewCategoryName('');
+          if (onCategoryChange) onCategoryChange();
+      }
     } catch (err: any) {
+      console.error(err);
       alert(`Erro ao adicionar categoria: ${err.message}`);
     } finally {
       setIsSavingCategory(false);

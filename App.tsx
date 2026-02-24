@@ -370,11 +370,35 @@ function StoreContext() {
         <Route index element={<AdminDashboard orders={orders} products={products} settings={settings} />} />
         <Route path="cardapio-admin" element={<MenuManagement storeId={currentStore?.id} products={products} saveProduct={async (p) => { 
           const payload = { ...p, store_id: currentStore?.id };
-          if (!payload.id) delete payload.id; // Ensure no empty ID is sent
-          await supabase.from('products').upsert([payload]);
+          if (!payload.id) delete payload.id;
+
+          const { data, error } = await supabase.from('products').upsert([payload]).select().single();
+          if (error) throw error;
+
+          if (data) {
+            const savedProduct = mapProductFromDb(data);
+            setProducts(prev => {
+              // If we updated an existing product, replace it.
+              // If we inserted a new one, p.id was undefined, but savedProduct.id is set.
+              // We should check if we have a product with the same ID (update) or not (insert).
+              // However, since p.id might be undefined for insert, we can't use it to find 'exists' reliably if we relied on it.
+              // But savedProduct.id is the source of truth.
+              const exists = prev.find(item => item.id === savedProduct.id);
+              if (exists) {
+                return prev.map(item => item.id === savedProduct.id ? savedProduct : item);
+              }
+              return [...prev, savedProduct];
+            });
+          }
+
           localStorage.removeItem(`${METADATA_CACHE_KEY}_${currentStore?.id}`);
         }} deleteProduct={async (id) => {
-          await supabase.from('products').eq('id', id).delete();
+          const { error } = await supabase.from('products').eq('id', id).delete();
+          if (error) throw error;
+
+          // Update local state immediately
+          setProducts(prev => prev.filter(item => item.id !== id));
+
           localStorage.removeItem(`${METADATA_CACHE_KEY}_${currentStore?.id}`);
         }} categories={categories} setCategories={setCategories} onCategoryChange={() => {
           localStorage.removeItem(`${METADATA_CACHE_KEY}_${currentStore?.id}`);
