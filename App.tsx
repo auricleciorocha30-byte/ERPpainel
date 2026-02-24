@@ -368,8 +368,10 @@ function StoreContext() {
         )
       }>
         <Route index element={<AdminDashboard orders={orders} products={products} settings={settings} />} />
-        <Route path="cardapio-admin" element={<MenuManagement products={products} saveProduct={async (p) => { 
-          await supabase.from('products').upsert([{ ...p, store_id: currentStore?.id }]);
+        <Route path="cardapio-admin" element={<MenuManagement storeId={currentStore?.id} products={products} saveProduct={async (p) => { 
+          const payload = { ...p, store_id: currentStore?.id };
+          if (!payload.id) delete payload.id; // Ensure no empty ID is sent
+          await supabase.from('products').upsert([payload]);
           localStorage.removeItem(`${METADATA_CACHE_KEY}_${currentStore?.id}`);
         }} deleteProduct={async (id) => {
           await supabase.from('products').eq('id', id).delete();

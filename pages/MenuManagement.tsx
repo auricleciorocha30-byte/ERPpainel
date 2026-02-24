@@ -7,13 +7,14 @@ import { supabase } from '../lib/supabase';
 
 interface Props {
   products: Product[];
-  saveProduct: (p: Product) => Promise<void>;
+  saveProduct: (p: Partial<Product>) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
   categories: string[];
   setCategories: (c: string[]) => void;
+  storeId?: string;
 }
 
-const MenuManagement: React.FC<Props> = ({ products, saveProduct, deleteProduct, categories, setCategories }) => {
+const MenuManagement: React.FC<Props> = ({ products, saveProduct, deleteProduct, categories, setCategories, storeId }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showProductModal, setShowProductModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -33,8 +34,8 @@ const MenuManagement: React.FC<Props> = ({ products, saveProduct, deleteProduct,
     setIsSaving(true);
 
     try {
-        const productData: Product = {
-            id: editingProduct.id || Math.random().toString(36).substr(2, 9),
+        const productData: Partial<Product> = {
+            id: editingProduct.id || undefined,
             name: editingProduct.name || '',
             description: editingProduct.description || '',
             price: Number(editingProduct.price) || 0,
@@ -59,9 +60,13 @@ const MenuManagement: React.FC<Props> = ({ products, saveProduct, deleteProduct,
 
   const handleAddCategory = async () => {
     if (!newCategoryName.trim()) return;
+    if (!storeId) {
+        alert("Erro: Loja não identificada.");
+        return;
+    }
     setIsSavingCategory(true);
     try {
-      const { error } = await supabase.from('categories').insert([{ name: newCategoryName.trim() }]);
+      const { error } = await supabase.from('categories').insert([{ name: newCategoryName.trim(), store_id: storeId }]);
       if (error) throw error;
       
       setCategories([...categories, newCategoryName.trim()]);
@@ -81,8 +86,7 @@ const MenuManagement: React.FC<Props> = ({ products, saveProduct, deleteProduct,
 
     if (window.confirm(`Deseja excluir a categoria "${catName}"?`)) {
       try {
-        // Fix: Swap .delete() and .eq() to match NeonBridge mock chaining logic
-        const { error } = await supabase.from('categories').eq('name', catName).delete();
+        const { error } = await supabase.from('categories').delete().eq('name', catName).eq('store_id', storeId);
         if (error) throw error;
         setCategories(categories.filter(c => c !== catName));
       } catch (err: any) {
