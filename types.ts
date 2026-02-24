@@ -34,6 +34,7 @@ export interface Product {
   featuredDay?: number;
   isByWeight?: boolean;
   store_id?: string;
+  barcode?: string;
 }
 
 export interface OrderItem {

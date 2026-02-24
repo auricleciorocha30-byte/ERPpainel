@@ -22,7 +22,10 @@ const MenuManagement: React.FC<Props> = ({ products, saveProduct, deleteProduct,
   const [newCategoryName, setNewCategoryName] = useState('');
   const [isSavingCategory, setIsSavingCategory] = useState(false);
 
-  const filtered = products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filtered = products.filter(p => 
+    p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    (p.barcode && p.barcode.includes(searchTerm))
+  );
 
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,7 +42,8 @@ const MenuManagement: React.FC<Props> = ({ products, saveProduct, deleteProduct,
             imageUrl: editingProduct.imageUrl || 'https://picsum.photos/400/300',
             isActive: editingProduct.isActive !== false,
             featuredDay: (editingProduct.featuredDay === -1 || editingProduct.featuredDay === undefined) ? undefined : Number(editingProduct.featuredDay),
-            isByWeight: !!editingProduct.isByWeight
+            isByWeight: !!editingProduct.isByWeight,
+            barcode: editingProduct.barcode || undefined
         };
 
         await saveProduct(productData);
@@ -284,6 +288,11 @@ const MenuManagement: React.FC<Props> = ({ products, saveProduct, deleteProduct,
                       {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                   </select>
                 </div>
+              </div>
+
+              <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Código de Barras (Opcional)</label>
+                  <input type="text" value={editingProduct?.barcode || ''} onChange={(e) => setEditingProduct({...editingProduct, barcode: e.target.value})} className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-orange-500" placeholder="EAN / Código" />
               </div>
 
               <div>

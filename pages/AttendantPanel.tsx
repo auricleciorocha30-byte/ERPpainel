@@ -351,6 +351,25 @@ const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, set
                 </div>
 
                 <div className="flex-1 space-y-2 mb-5 border-t border-gray-50 pt-4 min-h-[100px] overflow-y-auto custom-scrollbar">
+                  {/* Additional Info */}
+                  <div className="flex flex-col gap-1 mb-3 pb-3 border-b border-gray-50 text-[10px] text-gray-500">
+                     <div className="flex justify-between">
+                        <span className="font-bold uppercase tracking-wider">Hora:</span>
+                        <span>{new Date(order.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                     </div>
+                     {order.paymentMethod && (
+                        <div className="flex justify-between">
+                           <span className="font-bold uppercase tracking-wider">Pagamento:</span>
+                           <span>{order.paymentMethod}</span>
+                        </div>
+                     )}
+                     {order.notes && (
+                        <div className="mt-1 bg-yellow-50 p-2 rounded-lg border border-yellow-100 text-yellow-800 italic">
+                           <span className="font-bold not-italic mr-1">Obs:</span> {order.notes}
+                        </div>
+                     )}
+                  </div>
+
                   {order.items.map((it, i) => (
                     <div key={i} className="flex justify-between text-xs font-bold text-zinc-600">
                       <span className="truncate pr-2">
