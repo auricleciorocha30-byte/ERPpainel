@@ -376,7 +376,9 @@ function StoreContext() {
         }} deleteProduct={async (id) => {
           await supabase.from('products').eq('id', id).delete();
           localStorage.removeItem(`${METADATA_CACHE_KEY}_${currentStore?.id}`);
-        }} categories={categories} setCategories={setCategories} />} />
+        }} categories={categories} setCategories={setCategories} onCategoryChange={() => {
+          localStorage.removeItem(`${METADATA_CACHE_KEY}_${currentStore?.id}`);
+        }} />} />
         <Route path="pedidos" element={<OrdersList orders={orders} updateStatus={updateOrderStatus} products={products} addOrder={addOrder} settings={settings} />} />
         <Route path="equipe" element={<WaitstaffManagement currentStore={currentStore!} settings={settings} onUpdateSettings={handleUpdateSettings} />} />
         <Route path="configuracoes" element={<StoreSettingsPage settings={settings} products={products} onSave={handleUpdateSettings} />} />

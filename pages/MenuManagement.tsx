@@ -12,9 +12,10 @@ interface Props {
   categories: string[];
   setCategories: (c: string[]) => void;
   storeId?: string;
+  onCategoryChange?: () => void;
 }
 
-const MenuManagement: React.FC<Props> = ({ products, saveProduct, deleteProduct, categories, setCategories, storeId }) => {
+const MenuManagement: React.FC<Props> = ({ products, saveProduct, deleteProduct, categories, setCategories, storeId, onCategoryChange }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showProductModal, setShowProductModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -35,7 +36,7 @@ const MenuManagement: React.FC<Props> = ({ products, saveProduct, deleteProduct,
 
     try {
         const productData: Partial<Product> = {
-            id: editingProduct.id || undefined,
+            id: editingProduct.id || Math.random().toString(36).substr(2, 9),
             name: editingProduct.name || '',
             description: editingProduct.description || '',
             price: Number(editingProduct.price) || 0,
@@ -71,6 +72,7 @@ const MenuManagement: React.FC<Props> = ({ products, saveProduct, deleteProduct,
       
       setCategories([...categories, newCategoryName.trim()]);
       setNewCategoryName('');
+      if (onCategoryChange) onCategoryChange();
     } catch (err: any) {
       alert(`Erro ao adicionar categoria: ${err.message}`);
     } finally {
@@ -89,6 +91,7 @@ const MenuManagement: React.FC<Props> = ({ products, saveProduct, deleteProduct,
         const { error } = await supabase.from('categories').delete().eq('name', catName).eq('store_id', storeId);
         if (error) throw error;
         setCategories(categories.filter(c => c !== catName));
+        if (onCategoryChange) onCategoryChange();
       } catch (err: any) {
         alert(`Erro ao excluir categoria: ${err.message}`);
       }
