@@ -47,6 +47,7 @@ const SOUNDS = {
 
 const SESSION_KEY = 'gc-conveniencia-session-v1';
 const METADATA_CACHE_KEY = 'gc-metadata-cache-v1';
+const ORDERS_CACHE_KEY = 'gc-orders-cache-v1';
 
 export default function App() {
   return (
@@ -82,6 +83,7 @@ function StoreContext() {
   const [settings, setSettings] = useState<StoreSettings>(INITIAL_SETTINGS);
   const [categories, setCategories] = useState<string[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
   
   const [adminUser, setAdminUser] = useState<Waitstaff | null>(() => {
     const saved = localStorage.getItem(SESSION_KEY);
@@ -92,6 +94,17 @@ function StoreContext() {
   const initialLoadRef = useRef(true);
   const ordersRef = useRef<Order[]>([]);
   const syncIntervalRef = useRef<any>(null);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const handleSetUser = (user: Waitstaff | null) => {
     if (user) {
@@ -125,6 +138,25 @@ function StoreContext() {
   const fetchStoreContext = async (slug: string) => {
     setLoadingStore(true);
     try {
+      // Try to get from cache first if offline or just to show something fast
+      const cachedStore = localStorage.getItem(`store_profile_${slug}`);
+      if (cachedStore) {
+          const parsed = JSON.parse(cachedStore);
+          setCurrentStore(parsed);
+          setSettings(parsed.settings);
+          applyColors(parsed.settings);
+          if (!navigator.onLine) {
+              setLoadingStore(false);
+              return;
+          }
+      }
+
+      if (!navigator.onLine) {
+          if (!cachedStore) setStoreError({message: 'Sem conexão com a internet.', isSuspended: false});
+          setLoadingStore(false);
+          return;
+      }
+
       const { data, error } = await supabase
         .from('store_profiles')
         .select('*')
@@ -141,13 +173,18 @@ function StoreContext() {
         const storeData = data as any;
         const parsedSettings = typeof storeData.settings === 'string' ? JSON.parse(storeData.settings) : storeData.settings;
         
-        setCurrentStore({ 
+        const fullStoreData = { 
           ...storeData, 
           isActive: storeData.isActive ?? storeData.isactive ?? true,
           settings: parsedSettings 
-        });
+        };
+
+        setCurrentStore(fullStoreData);
         setSettings(parsedSettings);
         applyColors(parsedSettings);
+        
+        // Cache store profile
+        localStorage.setItem(`store_profile_${slug}`, JSON.stringify(fullStoreData));
       }
     } catch (err) {
       setStoreError({message: 'Erro ao carregar unidade.', isSuspended: false});
@@ -192,8 +229,17 @@ function StoreContext() {
   useEffect(() => {
     if (!currentStore) return;
 
+    // Load orders from cache immediately
+    const cachedOrders = localStorage.getItem(`${ORDERS_CACHE_KEY}_${currentStore.id}`);
+    if (cachedOrders) {
+        const parsed = JSON.parse(cachedOrders);
+        setOrders(parsed);
+        ordersRef.current = parsed;
+    }
+
     const syncOrders = async () => {
-      if (document.hidden) return; // Economiza Neon CU-hrs pausando queries em abas ocultas
+      if (document.hidden) return; 
+      if (!navigator.onLine) return; // Don't try if offline
 
       try {
         const { data } = await supabase
@@ -214,22 +260,28 @@ function StoreContext() {
           }
           ordersRef.current = newOrders;
           setOrders(newOrders);
+          
+          // Cache orders
+          localStorage.setItem(`${ORDERS_CACHE_KEY}_${currentStore.id}`, JSON.stringify(newOrders));
+          
           initialLoadRef.current = false;
         }
       } catch (err) { console.warn('Erro Sync'); }
     };
 
     const fetchMetadata = async () => {
-      // Tenta recuperar do cache local para evitar queries redundantes ao Neon
       const cached = localStorage.getItem(`${METADATA_CACHE_KEY}_${currentStore.id}`);
       if (cached) {
         const { products: p, categories: c, time } = JSON.parse(cached);
-        if (Date.now() - time < 600000) { // Cache de 10 minutos
+        // Use cache if offline or cache is fresh (1 hour now to save resources)
+        if (!navigator.onLine || (Date.now() - time < 3600000)) { 
           setProducts(p);
           setCategories(c);
-          return;
+          if (!navigator.onLine) return;
         }
       }
+
+      if (!navigator.onLine) return;
 
       const [pRes, cRes] = await Promise.all([
         supabase.from('products').select('*').eq('store_id', currentStore.id),
@@ -263,7 +315,8 @@ function StoreContext() {
 
     const startPolling = () => {
       if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
-      syncIntervalRef.current = setInterval(syncOrders, 20000); // Polling a cada 20s para balancear tempo real e economia
+      // Increased polling to 60s to save resources as requested
+      syncIntervalRef.current = setInterval(syncOrders, 60000); 
     };
 
     const handleVisibilityChange = () => {
