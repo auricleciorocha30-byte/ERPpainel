@@ -29,9 +29,12 @@ interface Props {
   settings: StoreSettings;
   updateStatus: (id: string, status: OrderStatus) => Promise<void>;
   onLogout: () => void;
+  onRefresh?: () => void;
+  isSyncing?: boolean;
+  lastSyncTime?: number;
 }
 
-const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, settings, updateStatus, onLogout }) => {
+const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, settings, updateStatus, onLogout, onRefresh, isSyncing, lastSyncTime }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [selectedTableModal, setSelectedTableModal] = useState<{id: string, type: 'MESA' | 'COMANDA'} | null>(null);
@@ -247,6 +250,15 @@ const AttendantPanel: React.FC<Props> = ({ adminUser, onSelectTable, orders, set
             </div>
           </div>
           <div className="flex gap-2">
+            {onRefresh && (
+                <button 
+                    onClick={onRefresh} 
+                    disabled={isSyncing}
+                    className="flex items-center gap-2 px-4 py-3 bg-white/10 rounded-2xl hover:bg-white/20 font-bold text-xs disabled:opacity-50"
+                >
+                    <RefreshCw size={18} className={isSyncing ? 'animate-spin' : ''} />
+                </button>
+            )}
             <button onClick={() => handleQuickOrder('BALCAO')} className="flex items-center gap-2 px-4 py-3 bg-white/10 rounded-2xl hover:bg-white/20 font-bold text-xs">
               <ShoppingBag size={18} /> Balcão
             </button>

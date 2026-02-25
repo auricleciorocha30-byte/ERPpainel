@@ -94,6 +94,8 @@ function StoreContext() {
   const initialLoadRef = useRef(true);
   const ordersRef = useRef<Order[]>([]);
   const syncIntervalRef = useRef<any>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<number>(Date.now());
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
@@ -226,6 +228,41 @@ function StoreContext() {
     barcode: p.barcode || undefined
   }), []);
 
+  const syncOrders = useCallback(async () => {
+    if (!currentStore) return;
+    if (document.hidden) return; 
+    if (!navigator.onLine) return;
+
+    setIsSyncing(true);
+    try {
+      const { data } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('store_id', currentStore.id)
+        .order('id', { ascending: false })
+        .limit(30);
+
+      if (data) {
+        const newOrders = data.map(mapOrderFromDb);
+        if (!initialLoadRef.current) {
+          if (newOrders.length > ordersRef.current.length) playAudio(SOUNDS.NEW_ORDER);
+          newOrders.forEach(no => {
+            const old = ordersRef.current.find(oo => oo.id === no.id);
+            if (old && old.status !== 'PRONTO' && no.status === 'PRONTO') playAudio(SOUNDS.ORDER_READY);
+          });
+        }
+        ordersRef.current = newOrders;
+        setOrders(newOrders);
+        
+        localStorage.setItem(`${ORDERS_CACHE_KEY}_${currentStore.id}`, JSON.stringify(newOrders));
+        
+        initialLoadRef.current = false;
+        setLastSyncTime(Date.now());
+      }
+    } catch (err) { console.warn('Erro Sync'); }
+    finally { setIsSyncing(false); }
+  }, [currentStore, mapOrderFromDb]);
+
   useEffect(() => {
     if (!currentStore) return;
 
@@ -237,43 +274,10 @@ function StoreContext() {
         ordersRef.current = parsed;
     }
 
-    const syncOrders = async () => {
-      if (document.hidden) return; 
-      if (!navigator.onLine) return; // Don't try if offline
-
-      try {
-        const { data } = await supabase
-          .from('orders')
-          .select('*')
-          .eq('store_id', currentStore.id)
-          .order('id', { ascending: false })
-          .limit(30);
-
-        if (data) {
-          const newOrders = data.map(mapOrderFromDb);
-          if (!initialLoadRef.current) {
-            if (newOrders.length > ordersRef.current.length) playAudio(SOUNDS.NEW_ORDER);
-            newOrders.forEach(no => {
-              const old = ordersRef.current.find(oo => oo.id === no.id);
-              if (old && old.status !== 'PRONTO' && no.status === 'PRONTO') playAudio(SOUNDS.ORDER_READY);
-            });
-          }
-          ordersRef.current = newOrders;
-          setOrders(newOrders);
-          
-          // Cache orders
-          localStorage.setItem(`${ORDERS_CACHE_KEY}_${currentStore.id}`, JSON.stringify(newOrders));
-          
-          initialLoadRef.current = false;
-        }
-      } catch (err) { console.warn('Erro Sync'); }
-    };
-
     const fetchMetadata = async () => {
       const cached = localStorage.getItem(`${METADATA_CACHE_KEY}_${currentStore.id}`);
       if (cached) {
         const { products: p, categories: c, time } = JSON.parse(cached);
-        // Use cache if offline or cache is fresh (1 hour now to save resources)
         if (!navigator.onLine || (Date.now() - time < 3600000)) { 
           setProducts(p);
           setCategories(c);
@@ -315,8 +319,8 @@ function StoreContext() {
 
     const startPolling = () => {
       if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
-      // Increased polling to 60s to save resources as requested
-      syncIntervalRef.current = setInterval(syncOrders, 60000); 
+      // Polling every 5 minutes (300000ms) to save resources. User can manual sync.
+      syncIntervalRef.current = setInterval(syncOrders, 300000); 
     };
 
     const handleVisibilityChange = () => {
@@ -335,7 +339,7 @@ function StoreContext() {
       if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [currentStore, mapOrderFromDb, mapProductFromDb]);
+  }, [currentStore, mapOrderFromDb, mapProductFromDb, syncOrders]);
 
   const addOrder = async (order: Order) => {
     const dbOrder = {
@@ -413,7 +417,7 @@ function StoreContext() {
 
   return (
     <Routes>
-      <Route path="/atendimento" element={<AttendantPanel adminUser={adminUser} orders={orders} settings={settings} onSelectTable={setActiveTable} updateStatus={updateOrderStatus} onLogout={() => handleSetUser(null)} />} />
+      <Route path="/atendimento" element={<AttendantPanel adminUser={adminUser} orders={orders} settings={settings} onSelectTable={setActiveTable} updateStatus={updateOrderStatus} onLogout={() => handleSetUser(null)} onRefresh={syncOrders} isSyncing={isSyncing} lastSyncTime={lastSyncTime} />} />
       <Route path="/cozinha" element={<KitchenBoard orders={orders} updateStatus={updateOrderStatus} />} />
       <Route path="/tv" element={<TVBoard orders={orders} settings={settings} products={products} />} />
       <Route path="/cardapio" element={<DigitalMenu products={products} categories={categories} settings={settings} orders={orders} addOrder={addOrder} tableNumber={activeTable} onLogout={() => setActiveTable(null)} isWaitstaff={!!adminUser} />} />
@@ -424,7 +428,7 @@ function StoreContext() {
         !storeSlug ? <SuperAdminPanel /> : (
           adminUser ? (
             adminUser.role === 'GERENTE' ? 
-              <AdminLayout settings={settings} onLogout={() => handleSetUser(null)} /> : 
+              <AdminLayout settings={settings} onLogout={() => handleSetUser(null)} onRefresh={syncOrders} isSyncing={isSyncing} lastSyncTime={lastSyncTime} /> : 
               <Navigate to={`/atendimento${lojaParam}`} />
           ) : <Navigate to={`/login${lojaParam}`} />
         )
@@ -471,7 +475,7 @@ function StoreContext() {
   );
 }
 
-function AdminLayout({ settings, onLogout }: { settings: StoreSettings, onLogout: () => void }) {
+function AdminLayout({ settings, onLogout, onRefresh, isSyncing, lastSyncTime }: { settings: StoreSettings, onLogout: () => void, onRefresh: () => void, isSyncing: boolean, lastSyncTime: number }) {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const storeSlug = useMemo(() => searchParams.get('loja'), [searchParams]);
@@ -491,6 +495,19 @@ function AdminLayout({ settings, onLogout }: { settings: StoreSettings, onLogout
         <div className="p-6 flex items-center gap-3 border-b border-white/10">
           <img src={settings.logoUrl} className="w-10 h-10 rounded-full border-2 border-secondary object-cover" alt="Logo" />
           <span className="font-brand text-lg font-bold truncate">{settings.storeName}</span>
+        </div>
+        <div className="p-4 border-b border-white/10">
+            <button 
+                onClick={onRefresh} 
+                disabled={isSyncing}
+                className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50"
+            >
+                <RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} /> 
+                {isSyncing ? 'Sincronizando...' : 'Atualizar Dados'}
+            </button>
+            <p className="text-[9px] text-white/40 text-center mt-2">
+                Última: {new Date(lastSyncTime).toLocaleTimeString()}
+            </p>
         </div>
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto custom-scrollbar">
           {menuItems.map(item => (
