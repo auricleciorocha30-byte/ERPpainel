@@ -319,8 +319,7 @@ function StoreContext() {
 
     const startPolling = () => {
       if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
-      // Polling every 5 minutes (300000ms) to save resources. User can manual sync.
-      syncIntervalRef.current = setInterval(syncOrders, 300000); 
+      syncIntervalRef.current = setInterval(syncOrders, 20000); 
     };
 
     const handleVisibilityChange = () => {
@@ -417,7 +416,7 @@ function StoreContext() {
 
   return (
     <Routes>
-      <Route path="/atendimento" element={<AttendantPanel adminUser={adminUser} orders={orders} settings={settings} onSelectTable={setActiveTable} updateStatus={updateOrderStatus} onLogout={() => handleSetUser(null)} onRefresh={syncOrders} isSyncing={isSyncing} lastSyncTime={lastSyncTime} />} />
+      <Route path="/atendimento" element={<AttendantPanel adminUser={adminUser} orders={orders} settings={settings} onSelectTable={setActiveTable} updateStatus={updateOrderStatus} onLogout={() => handleSetUser(null)} />} />
       <Route path="/cozinha" element={<KitchenBoard orders={orders} updateStatus={updateOrderStatus} />} />
       <Route path="/tv" element={<TVBoard orders={orders} settings={settings} products={products} />} />
       <Route path="/cardapio" element={<DigitalMenu products={products} categories={categories} settings={settings} orders={orders} addOrder={addOrder} tableNumber={activeTable} onLogout={() => setActiveTable(null)} isWaitstaff={!!adminUser} />} />
@@ -428,7 +427,7 @@ function StoreContext() {
         !storeSlug ? <SuperAdminPanel /> : (
           adminUser ? (
             adminUser.role === 'GERENTE' ? 
-              <AdminLayout settings={settings} onLogout={() => handleSetUser(null)} onRefresh={syncOrders} isSyncing={isSyncing} lastSyncTime={lastSyncTime} /> : 
+              <AdminLayout settings={settings} onLogout={() => handleSetUser(null)} /> : 
               <Navigate to={`/atendimento${lojaParam}`} />
           ) : <Navigate to={`/login${lojaParam}`} />
         )
@@ -475,7 +474,7 @@ function StoreContext() {
   );
 }
 
-function AdminLayout({ settings, onLogout, onRefresh, isSyncing, lastSyncTime }: { settings: StoreSettings, onLogout: () => void, onRefresh: () => void, isSyncing: boolean, lastSyncTime: number }) {
+function AdminLayout({ settings, onLogout }: { settings: StoreSettings, onLogout: () => void }) {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const storeSlug = useMemo(() => searchParams.get('loja'), [searchParams]);
@@ -495,19 +494,6 @@ function AdminLayout({ settings, onLogout, onRefresh, isSyncing, lastSyncTime }:
         <div className="p-6 flex items-center gap-3 border-b border-white/10">
           <img src={settings.logoUrl} className="w-10 h-10 rounded-full border-2 border-secondary object-cover" alt="Logo" />
           <span className="font-brand text-lg font-bold truncate">{settings.storeName}</span>
-        </div>
-        <div className="p-4 border-b border-white/10">
-            <button 
-                onClick={onRefresh} 
-                disabled={isSyncing}
-                className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50"
-            >
-                <RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} /> 
-                {isSyncing ? 'Sincronizando...' : 'Atualizar Dados'}
-            </button>
-            <p className="text-[9px] text-white/40 text-center mt-2">
-                Última: {new Date(lastSyncTime).toLocaleTimeString()}
-            </p>
         </div>
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto custom-scrollbar">
           {menuItems.map(item => (
